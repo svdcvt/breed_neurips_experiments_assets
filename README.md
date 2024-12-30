@@ -34,3 +34,20 @@ Finally, try a toy training with apebench,
 python3 hello.py
 ```
 
+
+### Jean-zay installation process
+```bash
+module load python/3.10.4 cudnn/9.2.0.82-cuda
+python3 -m pip install --user --no-cache-dir "jax[cuda12_local]"
+python3 -m pip install --user --no-cache-dir apebench
+```
+
+
+_When running_
+```bash
+module load python/3.10.4 cudnn/9.2.0.82-cuda
+python3 hello.py
+```
+
+
+
