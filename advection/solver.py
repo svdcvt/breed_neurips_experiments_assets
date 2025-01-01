@@ -41,7 +41,7 @@ def plot_grid(u, t):
     plt.plot(full_grid[0], ex.wrap_bc(u)[0], label=f"{t}th step")
 
 
-def advection_solver(tsteps, **kwargs):
+def advection_solver(**kwargs):
 
     make_ic = ex.ic.SineWaves1d(
         DOMAIN_EXTENT,
@@ -74,7 +74,7 @@ def advection_solver(tsteps, **kwargs):
 
     u = ic
     st = time.time()
-    for t in range(tsteps):
+    for t in range(NB_STEPS):
         u_next = advection_stepper(u)
         melissa_send(
             field_previous_position,

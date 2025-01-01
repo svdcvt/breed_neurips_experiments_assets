@@ -1,5 +1,5 @@
 {
-    "server_filename": "$APEBENCH_ROOT/apebench_server.py",
+    "server_filename": "$APEBENCH_ROOT/advection/server.py",
     "server_class": "AdvectionServer",
     "output_dir": "STUDY_OUT",
     "study_options": {
@@ -75,7 +75,7 @@
         "http_port": 8888
     },
     "client_config": {
-        "executable_command": "$APEBENCH_ROOT/advection_solver.py",
+        "executable_command": "$APEBENCH_ROOT/advection/solver.py",
         "command_default_args": [],
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda"
@@ -83,7 +83,8 @@
     },
     "server_config": {
         "preprocessing_commands": [
-            "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda"
+            "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
+            "export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT"
         ]
     }
 }

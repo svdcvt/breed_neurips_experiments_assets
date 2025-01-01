@@ -31,7 +31,7 @@ export XLA_FLAGS="--xla_gpu_cuda_data_dir=$CONDA_PREFIX"
 
 Finally, try a toy training with apebench,
 ```bash
-python3 hello.py
+python3 sample/hello.py
 ```
 
 _Note: Melissa installation within the local conda environment has been complicated. Only testing apebench x melissa on jean-zay at the moment._
@@ -45,7 +45,7 @@ python3 -m pip install --user --no-cache-dir apebench
 _When running_
 ```bash
 module load python/3.10.4 cudnn/9.2.0.82-cuda
-python3 hello.py
+python3 sample/hello.py
 ```
 
 ### Melissa installation on JZ
