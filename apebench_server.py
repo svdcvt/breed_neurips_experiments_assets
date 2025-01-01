@@ -3,15 +3,16 @@ import logging
 from typing_extensions import override
 import torch
 import numpy as np
+import jax
 import jax.numpy as jnp
+import optax
 import pdequinox as pdeqx
 
 from melissa.server.deep_learning.tensorboard_logger import (  # type: ignore
     TorchTensorboardLogger
 )
-from melissa.server.deep_learning.active_sampling.active_sampling_server import (  # type: ignore
-    ExperimentalDeepMelissaActiveSamplingServer
-)
+from melissa.server.deep_learning.active_sampling.active_sampling_server \
+    import ExperimentalDeepMelissaActiveSamplingServer
 
 import train_utils
 from custom_sampler import CustomICBreeder, CustomICUniformSampler
@@ -33,6 +34,12 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
         )
 
         study_options = config_dict["study_options"]
+
+        self.advection_config = study_options["advection"]
+        self.mesh_shape = [
+            self.advection_config["nb_points"]
+        ] * self.advection_config["nb_dims"]
+
         self.seed = study_options["seed"]
         # amplitude, phase
         self.l_bounds = [-1.0, 0.0]
@@ -51,21 +58,38 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
             dtype=np.float32
         )
 
+    def get_mlp(self):
+        return pdeqx.arch.MLP(
+            num_spatial_dims=self.advection_config["nb_dims"],
+            in_channels=1,
+            out_channels=1,
+            num_points=self.advection_config["nb_points"],
+            width_size=self.dl_config.get("width_size", 64),
+            depth=self.dl_config.get("depth", 3),
+            boundary_mode="dirichlet",
+            key=jax.random.PRNGKey(0)
+        )
+
+    def get_optimizer(self):
+        return optax.adam(self.dl_config.get("lr", 3e-4))
+
     @override
     def checkpoint(self):
         pass
 
     @override
     def prepare_training_attributes(self):
-        model = train_utils.get_mlp(self.dl_config)
+        model = self.get_mlp()
+        optimizer = self.get_optimizer()
         logger.info(f"Model parameters count: {pdeqx.count_parameters(model)}")
-        optimizer = train_utils.get_optimizer(self.dl_config)
         return model, optimizer
 
     @override
     def process_simulation_data(self, msg, config_dict):
-        u_prev = np.expand_dims(msg.data["preposition"], axis=0)
-        u_next = np.expand_dims(msg.data["position"], axis=0)
+        u_prev = msg.data["preposition"]
+        u_next = msg.data["position"]
+        u_prev = u_prev.reshape(1, *self.mesh_shape)
+        u_next = u_next.reshape(1, *self.mesh_shape)
 
         return u_prev, u_next
 

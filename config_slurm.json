@@ -3,11 +3,18 @@
     "server_class": "BaseAPEBenchServer",
     "output_dir": "STUDY_OUT",
     "study_options": {
+        "advection": {
+            "nb_dims": 1,
+            "domain_extent": 2.0,
+            "nb_points": 1000,
+            "dt": 0.1,
+            "velocity": 1.0
+        },
         "field_names": [
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 500,
+        "parameter_sweep_size": 200,
         "nb_time_steps": 100,
         "nb_parameters": 2,
         "seed": 1234,
@@ -29,14 +36,13 @@
         }
     },
     "dl_config": {
-        "nb_points": 1000,
         "width_size": 64,
         "depth": 3,
         "lr": 1e-4,
         "nb_batches_update": 100,
         "batch_size": 128, 
-        "per_server_watermark": 600,
-        "buffer_size": 4000,
+        "per_server_watermark": 1500,
+        "buffer_size": 2000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
     },
@@ -69,13 +75,8 @@
         "http_port": 8888
     },
     "client_config": {
-        "executable_command": "$APEBENCH_ROOT/advection1d_solver.py",
-        "command_default_args": [
-            "--domain-extent=2.0",
-            "--num-points=1000",
-            "--dt=0.1",
-            "--velocity=1.0"
-        ],
+        "executable_command": "$APEBENCH_ROOT/advection_solver.py",
+        "command_default_args": [],
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda"
         ]
