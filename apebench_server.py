@@ -33,6 +33,30 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
             debug=self.verbose_level >= 3
         )
 
+        self.train_dataloader = torch.utils.data.DataLoader(
+            self.dataset,
+            batch_size=self.batch_size,
+            drop_last=True,
+            num_workers=0
+        )
+
+    @override
+    def checkpoint(self):
+        pass
+
+    @override
+    def _load_model_from_checkpoint(self):
+        pass
+
+    @override
+    def _setup_environment_slurm(self):
+        pass
+
+
+class AdvectionServer(BaseAPEBenchServer):
+
+    def __init__(self, config_dict):
+        super().__init__(config_dict)
         study_options = config_dict["study_options"]
 
         self.advection_config = study_options["advection"]
@@ -73,9 +97,23 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
     def get_optimizer(self):
         return optax.adam(self.dl_config.get("lr", 3e-4))
 
-    @override
-    def checkpoint(self):
-        pass
+    def train(self):
+
+        opt_state = None
+        for batch_id, batch in enumerate(self.train_dataloader):
+            u_prev, u_next = batch
+            u_prev = jnp.asarray(u_prev)
+            u_next = jnp.asarray(u_next)
+            self.model, opt_state, batch_loss = train_utils.update_fn(
+                self.model,
+                self.optimizer,
+                u_prev,
+                u_next,
+                opt_state,
+            )
+            logger.info(f"BATCH={batch_id} loss={batch_loss:.3e}")
+            scalar_loss = batch_loss.tolist()
+            self.tb_logger.log_scalar("Loss/train", scalar_loss, batch_id)
 
     @override
     def prepare_training_attributes(self):
@@ -88,40 +126,8 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
     def process_simulation_data(self, msg, config_dict):
         u_prev = msg.data["preposition"]
         u_next = msg.data["position"]
+
         u_prev = u_prev.reshape(1, *self.mesh_shape)
         u_next = u_next.reshape(1, *self.mesh_shape)
 
-        return u_prev, u_next
-
-    @override
-    def train(self):
-        dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=self.batch_size,
-            drop_last=True,
-            num_workers=0
-        )
-
-        opt_state = None
-        for batch_id, batch in enumerate(dataloader):
-            u_prev, u_next = batch
-            u_prev = jnp.asarray(u_prev)
-            u_next = jnp.asarray(u_next)
-            self.model, opt_state, batch_loss = train_utils.update_fn(
-                self.model,
-                self.optimizer,
-                u_prev,
-                u_next,
-                opt_state,
-            )
-            logger.info(f"BATCH={batch_id} loss={batch_loss}")
-            scalar_loss = batch_loss.tolist()
-            self.tb_logger.log_scalar("Loss/train", scalar_loss, batch_id)
-
-    @override
-    def _load_model_from_checkpoint(self):
-        pass
-
-    @override
-    def _setup_environment_slurm(self):
-        pass
+        return u_prev, u_next, msg.simulation_id, msg.time_step

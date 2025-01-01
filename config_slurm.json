@@ -1,6 +1,6 @@
 {
     "server_filename": "$APEBENCH_ROOT/apebench_server.py",
-    "server_class": "BaseAPEBenchServer",
+    "server_class": "AdvectionServer",
     "output_dir": "STUDY_OUT",
     "study_options": {
         "advection": {
