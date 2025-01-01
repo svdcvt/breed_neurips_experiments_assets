@@ -15,6 +15,13 @@ from melissa_api import (  # type: ignore
 )
 
 
+NB_STEPS = 100
+DOMAIN_EXTENT = 1.0
+NUM_POINTS = 100
+DT = 0.05
+VELOCITY = 1.0
+
+
 def plot_grid(u, t, **kwargs):
 
     del kwargs["dt"], kwargs["velocity"]
@@ -30,13 +37,22 @@ def plot_grid(u, t, **kwargs):
 
 def advection1d_solver(tsteps, **kwargs):
 
-    def make_ic(x):
-        return jnp.sin(2 * jnp.pi * x / kwargs["domain_extent"])
+    # def make_ic(x, domain, amp, phs):
+    #     return amp * jnp.sin(2 * jnp.pi * x / domain + phs)
 
+    make_ic = ex.ic.SineWaves1d(
+        kwargs["domain_extent"],
+        (kwargs["amplitude"],),
+        (1,),
+        (kwargs["phase"],), 
+    )
     print(kwargs)
     advection_stepper = ex.stepper.Advection(
         num_spatial_dims=1,
-        **kwargs
+        domain_extent=kwargs["domain_extent"],
+        num_points=kwargs["num_points"],
+        dt=kwargs["dt"],
+        velocity=kwargs["velocity"]
     )
     print(advection_stepper)
     ic = make_ic(
@@ -44,7 +60,10 @@ def advection1d_solver(tsteps, **kwargs):
             1,
             kwargs["domain_extent"],
             kwargs["num_points"]
-        )
+        ),
+        # kwargs["domain_extent"],
+        # kwargs["amplitude"],
+        # kwargs["phase"],
     )
 
     comm = MPI.COMM_WORLD
@@ -56,16 +75,22 @@ def advection1d_solver(tsteps, **kwargs):
     u = ic
     for t in range(tsteps):
         u_next = advection_stepper(u)
-        melissa_send(field_previous_position, np.asarray(u))
-        melissa_send(field_position, np.asarray(u_next))
+        melissa_send(
+            field_previous_position,
+            np.asarray(u).flatten()
+        )
+        melissa_send(
+            field_position,
+            np.asarray(u_next).flatten()
+        )
         print(f"t={t} solved")
 
     melissa_finalize()
 
-    plot_grid(ic, 0, **kwargs)
-    plot_grid(u_next, t, **kwargs)
-    plt.legend()
-    plt.show()
+    # plot_grid(ic, 0, **kwargs)
+    # plot_grid(u_next, t, **kwargs)
+    # plt.legend()
+    # plt.show()
 
 
 def parse_arguments():
@@ -74,32 +99,44 @@ def parse_arguments():
     parser.add_argument(
         "--tsteps",
         type=int,
-        default=100,
+        default=NB_STEPS,
         help="Number of timesteps to solve."
     )
     parser.add_argument(
         "--domain-extent",
         type=float,
-        default=1.0,
+        default=DOMAIN_EXTENT,
         help="The domain of the simulation."
     )
     parser.add_argument(
         "--num-points",
         type=int,
-        default=100,
+        default=NUM_POINTS,
         help="Number of points in the simulation grid."
     )
     parser.add_argument(
         "--dt",
         type=float,
-        default=0.1,
+        default=DT,
         help="Time step size for the simulation."
     )
     parser.add_argument(
         "--velocity",
         type=float,
-        required=True,
+        default=VELOCITY,
         help="Velocity parameter for the simulation."
+    )
+    parser.add_argument(
+        "--amplitude",
+        type=float,
+        required=True,
+        help="IC Amplitude of the sine wave."
+    )
+    parser.add_argument(
+        "--phase",
+        type=float,
+        required=True,
+        help="IC Phase for the sine wave."
     )
 
     return parser.parse_args()

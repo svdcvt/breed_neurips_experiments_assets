@@ -34,14 +34,7 @@ Finally, try a toy training with apebench,
 python3 hello.py
 ```
 
-### Melissa installation
-```bash
-# within conda env
-conda install mpi4py # optional, mpirun is a bit tricky. So, install it beforehand or use the existing one (for eg, the module).
-conda install pytorch cpuonly -c pytorch
-python3 -m pip install git+https://gitlab.inria.fr/melissa/melissa.git@develop#egg=melissa[dl]
-```
-Pass `--no-deps` to `pip install` given that already have all the packages installed.
+_Note: Melissa installation within the local conda environment has been complicated. Only testing apebench x melissa on jean-zay at the moment._
 
 ## Jean-zay installation process
 ```bash
@@ -55,5 +48,17 @@ module load python/3.10.4 cudnn/9.2.0.82-cuda
 python3 hello.py
 ```
 
+### Melissa installation on JZ
+```bash
+module load cmake zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda
+git clone https://gitlab.inria.fr/melissa/melissa.git MELISSA
+cd MELISSA
+python3 -m pip install --target=install --no-deps --no-cache-dir -e .[dl]
+cmake -DCMAKE_INSTALL_PREFIX=install -DINSTALL_ZMQ=OFF -S . -B build
+make -C build
+make -C build install
+```
+
+_Note: Install unfound packages with `python3 -m pip install --user --no-cache-dir ...` in `~/.local`_
 
 

@@ -58,19 +58,19 @@ print(f"Took {time.time() - s:.2f} seconds")
 
 longer_trajectory_wrapped = jax.vmap(ex.wrap_bc)(longer_trajectory)
 print(longer_trajectory_wrapped.shape)
-plt.imshow(
-    longer_trajectory_wrapped[:, 0, :].T,
-    origin="lower",
-    cmap="RdBu",
-    vmin=-1,
-    vmax=1,
-    extent=[0, 200 * SMALLER_DT, 0, DOMAIN_EXTENT],
-)
-plt.colorbar()
-plt.xlabel("time")
-plt.ylabel("space")
-plt.title("advection")
-plt.show()
+# plt.imshow(
+#     longer_trajectory_wrapped[:, 0, :].T,
+#     origin="lower",
+#     cmap="RdBu",
+#     vmin=-1,
+#     vmax=1,
+#     extent=[0, 200 * SMALLER_DT, 0, DOMAIN_EXTENT],
+# )
+# plt.colorbar()
+# plt.xlabel("time")
+# plt.ylabel("space")
+# plt.title("advection")
+# plt.show()
 
 # fig = plt.figure(figsize=(10, 7))
 # ax = fig.add_subplot(111, projection='3d')
