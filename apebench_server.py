@@ -1,18 +1,17 @@
-import os
-import time
 import logging
 
 from typing_extensions import override
 import torch
 import numpy as np
 import jax.numpy as jnp
-import optax
-import equinox as eqx
 import pdequinox as pdeqx
 
-from melissa.server.deep_learning.tensorboard_logger import TorchTensorboardLogger
-from melissa.server.deep_learning.active_sampling.active_sampling_server import \
+from melissa.server.deep_learning.tensorboard_logger import (  # type: ignore
+    TorchTensorboardLogger
+)
+from melissa.server.deep_learning.active_sampling.active_sampling_server import (  # type: ignore
     ExperimentalDeepMelissaActiveSamplingServer
+)
 
 import train_utils
 from custom_sampler import CustomICBreeder, CustomICUniformSampler
@@ -33,13 +32,11 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
             debug=self.verbose_level >= 3
         )
 
-
         study_options = config_dict["study_options"]
         self.seed = study_options["seed"]
         # amplitude, phase
         self.l_bounds = [-1.0, 0.0]
         self.u_bounds = [1.0, 2 * np.pi]
-
 
         sampler_type = config_dict.get("sampler_type", "uniform")
         sampler_t = \
@@ -75,9 +72,12 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
     @override
     def train(self):
         dataloader = torch.utils.data.DataLoader(
-            self.dataset, batch_size=self.batch_size, drop_last=True, num_workers=0
+            self.dataset,
+            batch_size=self.batch_size,
+            drop_last=True,
+            num_workers=0
         )
-        
+
         opt_state = None
         for batch_id, batch in enumerate(dataloader):
             u_prev, u_next = batch
@@ -91,7 +91,8 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
                 opt_state,
             )
             logger.info(f"BATCH={batch_id} loss={batch_loss}")
-            self.tb_logger.log_scalar("Loss/train", batch_loss.tolist(), batch_id)
+            scalar_loss = batch_loss.tolist()
+            self.tb_logger.log_scalar("Loss/train", scalar_loss, batch_id)
 
     @override
     def _load_model_from_checkpoint(self):

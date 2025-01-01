@@ -15,9 +15,9 @@ def get_mlp(dl_config):
         key=jax.random.PRNGKey(0)
     )
 
+
 def get_optimizer(dl_config):
     return optax.adam(dl_config.get("lr", 3e-4))
-
 
 
 def loss_fn(model, x, y):
@@ -34,4 +34,3 @@ def update_fn(model, optimizer, x, y, opt_state=None):
     updates, new_state = optimizer.update(grad, opt_state, model)
     new_model = eqx.apply_updates(model, updates)
     return new_model, new_state, loss
-

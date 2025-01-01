@@ -7,7 +7,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 100,
+        "parameter_sweep_size": 500,
         "nb_time_steps": 100,
         "nb_parameters": 2,
         "seed": 1234,
@@ -29,14 +29,14 @@
         }
     },
     "dl_config": {
-        "nb_points": 100,
+        "nb_points": 1000,
         "width_size": 64,
         "depth": 3,
-        "lr": 3e-4,
+        "lr": 1e-4,
         "nb_batches_update": 100,
-        "batch_size": 16, 
-        "per_server_watermark": 300,
-        "buffer_size": 2000,
+        "batch_size": 128, 
+        "per_server_watermark": 600,
+        "buffer_size": 4000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
     },
@@ -60,7 +60,7 @@
             "--time=00:01:00",
             "--exclusive"
         ],
-        "job_limit": 11,
+        "job_limit": 21,
         "server_timeout": 60,
         "timer_delay": 3,
         "fault_tolerance": false,
@@ -71,9 +71,9 @@
     "client_config": {
         "executable_command": "$APEBENCH_ROOT/advection1d_solver.py",
         "command_default_args": [
-            "--domain-extent=1.0",
-            "--num-points=100",
-            "--dt=0.05",
+            "--domain-extent=2.0",
+            "--num-points=1000",
+            "--dt=0.1",
             "--velocity=1.0"
         ],
         "preprocessing_commands": [

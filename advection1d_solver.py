@@ -5,7 +5,6 @@ import argparse
 from mpi4py import MPI
 import exponax as ex
 import numpy as np
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 
 from melissa_api import (  # type: ignore
@@ -44,7 +43,7 @@ def advection1d_solver(tsteps, **kwargs):
         kwargs["domain_extent"],
         (kwargs["amplitude"],),
         (1,),
-        (kwargs["phase"],), 
+        (kwargs["phase"],)
     )
     print(kwargs)
     advection_stepper = ex.stepper.Advection(
