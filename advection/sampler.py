@@ -3,7 +3,9 @@ import jax
 import jax.numpy as jnp
 from typing_extensions import override
 
-from melissa.server.parameters import StaticExperiment  # type: ignore
+from melissa.server.parameters import (  # type: ignore
+        StaticExperiment,
+)
 from melissa.server.deep_learning.active_sampling import (  # type: ignore
     DefaultBreeder
 )
@@ -60,3 +62,4 @@ class CustomICBreeder(ICSamplerMixIn, DefaultBreeder):
         self.amp_key, self.phs_key = self.make_keys(self.seed)
 
         return samples
+

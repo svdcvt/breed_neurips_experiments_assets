@@ -1,0 +1,73 @@
+{
+    "server_filename": "$ADVECTION_DIR/offline_server.py",
+    "server_class": "OfflineServer",
+    "output_dir": "advection1d_1000",
+    "study_options": {
+        "advection": {
+            "nb_dims": 1,
+            "domain_extent": 2.0,
+            "nb_points": 1000,
+            "dt": 0.1,
+            "velocity": 1.0
+        },
+        "field_names": [
+            "preposition",
+            "position"
+        ],
+        "parameter_sweep_size": 100,
+        "nb_time_steps": 100,
+        "nb_parameters": 2,
+        "seed": 54321,
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2
+    },
+    "sa_config": {
+        "mean": false,
+        "variance": false,
+        "skewness": false,
+        "kurtosis": false,
+        "sobol_indices": false
+    },
+    "launcher_config": {
+        "scheduler": "slurm-global",
+        "scheduler_arg_server": [
+            "--het-group=0",
+            "--ntasks=1",
+            "--time=00:30:00"
+        ],
+        "scheduler_arg_client": [
+            "--het-group=1",
+            "--ntasks=1",
+            "--time=00:05:00",
+            "--exclusive"
+        ],
+        "job_limit": 21,
+        "server_timeout": 120,
+        "timer_delay": 10,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": false,
+        "http_port": 8888
+    },
+    "client_config": {
+        "executable_command": "$ADVECTION_DIR/solver.py",
+        "command_default_args": ["--store"],
+        "preprocessing_commands": [
+            "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
+            "export CONFIG_FILE=$ADVECTION_DIR/config_offline.json",
+            "export JAX_PLATFORMS=cpu"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+            "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
+            "module load nccl/2.21.5-1-cuda",
+            "export JAX_PLATFORMS=cpu",
+            "export TORCH_PATH=$APEBENCH_ROOT/MELISSA/install/torch",
+            "export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT/test:$ADVECTION_DIR:$TORCH_PATH",
+            "mkdir -p trajectories"
+        ]
+    }
+
+}

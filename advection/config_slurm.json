@@ -1,5 +1,5 @@
 {
-    "server_filename": "$APEBENCH_ROOT/advection/server.py",
+    "server_filename": "$ADVECTION_DIR/server.py",
     "server_class": "AdvectionServer",
     "output_dir": "STUDY_OUT",
     "study_options": {
@@ -24,25 +24,26 @@
     },
     "sampler_type": "uniform",
     "active_sampling_config": {
-        "nn_updates": -1,
-        "non_resampling_threshold": 50,
+        "nn_updates": 500,
+        "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
             "sigma": 1.0,
             "start": 0.5,
             "end": 0.9,
-            "breakpoint": 5,
-            "sliding_window_size": 200
+            "breakpoint": 3,
+            "sliding_window_size": 50
         }
     },
     "dl_config": {
+        "validation_directory": "$ADVECTION_DIR/validation/1d_1000/trajectories",
         "width_size": 64,
         "depth": 3,
         "lr": 1e-4,
         "nb_batches_update": 100,
         "batch_size": 128, 
-        "per_server_watermark": 1500,
-        "buffer_size": 2000,
+        "per_server_watermark": 800,
+        "buffer_size": 1000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
     },
@@ -68,23 +69,27 @@
         ],
         "job_limit": 21,
         "server_timeout": 60,
-        "timer_delay": 3,
+        "timer_delay": 10,
         "fault_tolerance": false,
         "verbosity": 2,
         "std_output": true,
         "http_port": 8888
     },
     "client_config": {
-        "executable_command": "$APEBENCH_ROOT/advection/solver.py",
+        "executable_command": "$ADVECTION_DIR/solver.py",
         "command_default_args": [],
         "preprocessing_commands": [
-            "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda"
+            "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
+            "export CONFIG_FILE=$ADVECTION_DIR/config_slurm.json",
+            "export JAX_PLATFORMS=cpu"
         ]
     },
     "server_config": {
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
-            "export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT"
+            "module load nccl/2.21.5-1-cuda",
+            "export TORCH_PATH=$APEBENCH_ROOT/MELISSA/install/torch",
+            "export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT/test:$ADVECTION_DIR:$TORCH_PATH"
         ]
     }
 }

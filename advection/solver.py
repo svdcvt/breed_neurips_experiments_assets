@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import os
 import time
 import rapidjson
 import argparse
@@ -7,6 +8,7 @@ import argparse
 from mpi4py import MPI
 import exponax as ex
 import numpy as np
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 
 from melissa_api import (  # type: ignore
@@ -18,7 +20,7 @@ from melissa_api import (  # type: ignore
 from melissa.launcher.schema import CONFIG_PARSE_MODE  # type: ignore
 
 
-with open("config_slurm.json") as json_file:
+with open(os.getenv("CONFIG_FILE")) as json_file:
     config_dict = rapidjson.load(json_file, parse_mode=CONFIG_PARSE_MODE)
 
 
@@ -41,7 +43,7 @@ def plot_grid(u, t):
     plt.plot(full_grid[0], ex.wrap_bc(u)[0], label=f"{t}th step")
 
 
-def advection_solver(**kwargs):
+def advection_solver(store=False, **kwargs):
 
     make_ic = ex.ic.SineWaves1d(
         DOMAIN_EXTENT,
@@ -66,28 +68,39 @@ def advection_solver(**kwargs):
         ),
     )
 
-    comm = MPI.COMM_WORLD
-    field_previous_position = "preposition"
-    field_position = "position"
-    melissa_init(field_previous_position, NUM_POINTS, comm)
-    melissa_init(field_position, NUM_POINTS, comm)
+    if not store:
+        comm = MPI.COMM_WORLD
+        field_previous_position = "preposition"
+        field_position = "position"
+        melissa_init(field_previous_position, NB_DIMS * NUM_POINTS, comm)
+        melissa_init(field_position, NB_DIMS * NUM_POINTS, comm)
 
-    u = ic
-    st = time.time()
-    for t in range(NB_STEPS):
-        u_next = advection_stepper(u)
-        melissa_send(
-            field_previous_position,
-            np.asarray(u).flatten()
+        u = ic
+        st = time.time()
+        for t in range(NB_STEPS):
+            u_next = advection_stepper(u)
+            melissa_send(
+                field_previous_position,
+                np.asarray(u).flatten()
+            )
+            melissa_send(
+                field_position,
+                np.asarray(u_next).flatten()
+            )
+            print(f"t={t} solved")
+    
+        melissa_finalize()
+    else:
+        rollout_advection_stepper = ex.rollout(
+            advection_stepper,
+            NB_STEPS,
+            include_init=True
         )
-        melissa_send(
-            field_position,
-            np.asarray(u_next).flatten()
-        )
-        print(f"t={t} solved")
-
-    melissa_finalize()
-
+        st = time.time()
+        trajectory = rollout_advection_stepper(ic)
+        sim_id = os.getenv("MELISSA_SIMU_ID")
+        jnp.save(f"trajectories/sim{sim_id}.npy", trajectory)
+        
     print(f"Total time taken {time.time() - st:.2f} sec.")
 
 
@@ -105,7 +118,11 @@ def parse_arguments():
         required=True,
         help="IC Phase for the sine wave."
     )
-
+    parser.add_argument(
+        "--store", 
+        action="store_true",
+        help="Set this when you want to store the trajectories."
+    )
     return parser.parse_args()
 
 

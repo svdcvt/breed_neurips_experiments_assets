@@ -2,4 +2,11 @@ std
 build
 MELISSA
 STUDY_OUT
+*.npy
+*.err
+*.out
+stdout/
+client_scripts/
+checkpoints/
 __pycache__
+validation/**

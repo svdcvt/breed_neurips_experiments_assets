@@ -2,6 +2,18 @@ import jax
 import jax.numpy as jnp
 import equinox as eqx
 
+done = False
+DIM2AXIS =  {
+    1: (1,),
+    2: (1, 2),
+    3: (1, 2, 3)
+}
+
+
+def jax2torch(jax_array):
+    numpy_array = jnp.asarray(jax_array).copy()
+    return torch.tensor(numpy_array)
+
 
 def normalize():
     pass
@@ -13,15 +25,48 @@ def denormalize():
 
 def loss_fn(model, x, y):
     y_pred = jax.vmap(model)(x)
-    mse = jnp.mean(jnp.square(y_pred - y))
-    return mse
+    mse_per_sample = jnp.mean(
+        jnp.square(y_pred - y),
+        axis=DIM2AXIS[len(x[0].shape)]
+    )
+    batch_mse = jnp.mean(mse_per_sample)
+    return batch_mse, mse_per_sample
+
+
+def get_grads_stats(grads):
+    
+    grads_flat, _ = jax.tree_util.tree_flatten(eqx.filter(grads, eqx.is_array))
+    flat_grads = [g.reshape(-1) for g in grads_flat]
+    grads_concat = jnp.concatenate(flat_grads)
+    total_norm = 0.0
+    for g in grads_flat:
+        total_norm += jnp.linalg.norm(g, ord=2) ** 2
+    total_norm = jnp.sqrt(total_norm)
+    mean = jnp.mean(grads_concat)
+    variance = jnp.var(grads_concat) 
+    
+    return {
+        "l2-norm": total_norm.item(),
+        "mean": mean.item(),
+        "var": variance.item()
+    }
 
 
 @eqx.filter_jit
 def update_fn(model, optimizer, x, y, opt_state=None):
     if opt_state is None:
         opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
-    loss, grad = eqx.filter_value_and_grad(loss_fn)(model, x, y)
-    updates, new_state = optimizer.update(grad, opt_state, model)
+    eval_grad = eqx.filter_value_and_grad(
+        loss_fn,
+        has_aux=True
+    )
+    (loss, loss_per_sample), grads = eval_grad(model, x, y)
+    updates, new_state = optimizer.update(grads, opt_state, model)
     new_model = eqx.apply_updates(model, updates)
-    return new_model, new_state, loss
+    return (
+        new_model,
+        new_state,
+        loss,
+        loss_per_sample,
+        grads
+    )
