@@ -1,9 +1,10 @@
+import torch
 import jax
 import jax.numpy as jnp
 import equinox as eqx
 
 done = False
-DIM2AXIS =  {
+DIM2AXIS = {
     1: (1,),
     2: (1, 2),
     3: (1, 2, 3)
@@ -23,18 +24,8 @@ def denormalize():
     pass
 
 
-def loss_fn(model, x, y):
-    y_pred = jax.vmap(model)(x)
-    mse_per_sample = jnp.mean(
-        jnp.square(y_pred - y),
-        axis=DIM2AXIS[len(x[0].shape)]
-    )
-    batch_mse = jnp.mean(mse_per_sample)
-    return batch_mse, mse_per_sample
-
-
 def get_grads_stats(grads):
-    
+
     grads_flat, _ = jax.tree_util.tree_flatten(eqx.filter(grads, eqx.is_array))
     flat_grads = [g.reshape(-1) for g in grads_flat]
     grads_concat = jnp.concatenate(flat_grads)
@@ -43,13 +34,23 @@ def get_grads_stats(grads):
         total_norm += jnp.linalg.norm(g, ord=2) ** 2
     total_norm = jnp.sqrt(total_norm)
     mean = jnp.mean(grads_concat)
-    variance = jnp.var(grads_concat) 
-    
+    variance = jnp.var(grads_concat)
+
     return {
         "l2-norm": total_norm.item(),
         "mean": mean.item(),
         "var": variance.item()
     }
+
+
+def loss_fn(model, x, y):
+    y_pred = jax.vmap(model)(x)
+    mse_per_sample = jnp.mean(
+        jnp.square(y_pred - y),
+        axis=DIM2AXIS[len(x[0].shape)]
+    )
+    batch_mse = jnp.mean(mse_per_sample)
+    return batch_mse, mse_per_sample
 
 
 @eqx.filter_jit

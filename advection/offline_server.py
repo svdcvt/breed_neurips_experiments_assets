@@ -5,23 +5,13 @@ import numpy as np
 import logging
 
 from melissa.server.sensitivity_analysis import SensitivityAnalysisServer  # type: ignore
-from melissa.server.parameters import (  # type: ignore
-    StaticExperiment,
-    HaltonSamplerMixIn
-)
+
+from common import StaticHaltonSampler
 
 logger = logging.getLogger("melissa")
 
 
-class ValidationHaltonGenerator(HaltonSamplerMixIn, StaticExperiment):
-    """Convenience class to store all generated parameters."""
-    # since we inherit SA server, we remove the parameters for pick freeze
-    # they are by-default passed in the SensitivityAnalysisServer class.
-    def __init__(self, **kwargs):
-        del kwargs["apply_pick_freeze"], kwargs["second_order"]
-        StaticExperiment.__init__(self, **kwargs)
-        HaltonSamplerMixIn.__init__(self)
-
+class ValidationSampler(StaticHaltonSampler):
     @override
     def draw(self):
         amp, phs = super().draw()
@@ -52,7 +42,7 @@ class OfflineServer(SensitivityAnalysisServer):
         u_bounds = [1.0, 2 * np.pi]
 
         self.set_parameter_sampler(
-            sampler_t=ValidationHaltonGenerator,
+            sampler_t=ValidationSampler,
             seed=self.seed,
             l_bounds=l_bounds,
             u_bounds=u_bounds,
