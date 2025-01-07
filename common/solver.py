@@ -5,7 +5,6 @@ import time
 import argparse
 
 import rapidjson
-import matplotlib.pyplot as plt
 import exponax as ex
 from mpi4py import MPI
 import numpy as np
@@ -18,14 +17,17 @@ from melissa_api import (  # type: ignore
 )
 from melissa.launcher.schema import CONFIG_PARSE_MODE  # type: ignore
 
-from scenarios import SCENARIOS, MelissaSpecificScenario
+from scenarios import MelissaSpecificScenario
 
 try:
     with open(os.getenv("CONFIG_FILE")) as json_file:
         CONFIG_DICT = rapidjson.load(json_file, parse_mode=CONFIG_PARSE_MODE)
 except Exception as e:
     print(str(e))
-    print("Please set CONFIG_FILE with configuration file path.")
+    print(
+        "Please set CONFIG_FILE with configuration file path",
+        "to load the scenario configuration for the solver."
+    )
 
 VALIDATION_DIR = "trajectories"
 VALDIATION_INPUT_PARAM_FILE = f"{VALIDATION_DIR}/input_parameters.npy"
@@ -35,24 +37,8 @@ FIELD_PREV_POSITION = "preposition"
 FIELD_POSITION = "position"
 
 
-def plot_grid(u, t, **make_grid_args):
-
-    full_grid = ex.make_grid(
-        **make_grid_args,
-        full=True
-    )
-    plt.plot(full_grid[0], ex.wrap_bc(u)[0], label=f"{t}th step")
-
-
 def get_default_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--scenario",
-        type=str,
-        required=True,
-        choices=list(SCENARIOS.keys()),
-        help="Load the solver with this APEBench scenario"
-    )
     parser.add_argument(
         "--ic-config",
         type=str,
@@ -64,6 +50,7 @@ def get_default_parser():
         action="store_true",
         help="Set this when you want to store the trajectories"
     )
+
     return parser
 
 
@@ -105,12 +92,12 @@ def offline(stepper, ic):
     print(f"Total time taken {time.time() - st:.2f} sec.")
 
 
-def run_solver(scenario_name, store, sampled_ic_config):
-    scenario = MelissaSpecificScenario(scenario_name, SCENARIO_CONFIG)
+def run_solver(store, sampled_ic_config):
+    scenario = MelissaSpecificScenario(**SCENARIO_CONFIG)
     stepper = scenario.get_stepper()
     data_shape = scenario.get_shape()
     flattened_mesh_size = np.prod(data_shape)
-    ic = scenario.get_ic(sampled_ic_config)
+    ic = scenario.make_ic(sampled_ic_config)
 
     if store:
         offline(stepper, ic)
@@ -121,4 +108,4 @@ def run_solver(scenario_name, store, sampled_ic_config):
 if __name__ == "__main__":
     parser = get_default_parser()
     args = parser.parse_args()
-    run_solver(args.scenario, args.store, args.ic_config)
+    run_solver(args.store, args.ic_config)

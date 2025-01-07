@@ -16,16 +16,52 @@ from melissa.server.deep_learning.active_sampling.active_sampling_server import 
 
 import train_utils as tutils
 import valid_utils as vutils
+from sampler import get_sampler_class_type
 
 
 logger = logging.getLogger("melissa")
 
 
-class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
+# TODO: Melissa DL interface will change in the future
+# purely from the training perspective. Dataset -> Dataloader -> training
+class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
 
     def __init__(self, config_dict):
         super().__init__(config_dict)
-        self.opt_state = None
+
+        study_options = config_dict["study_options"]
+        scenario_config = study_options["scenario_config"]
+        self.seed = study_options["seed"]
+        self.l_bounds = study_options["l_bounds"]
+        self.u_bounds = study_options["u_bounds"]
+
+        # eval() for string type bounds from json
+        for i in range(self.nb_parameters):
+            if isinstance(self.l_bounds[i], str):
+                self.l_bounds[i] = eval(self.l_bounds[i])
+            if isinstance(self.u_bounds[i], str):
+                self.u_bounds[i] = eval(self.u_bounds[i])
+
+        sampler_type = config_dict.get("sampler_type", "uniform")
+        self.is_breed_study = sampler_type == "breed"
+        if self.is_breed_study:
+            self.breed_params = self.ac_config.get("breed_params", dict())
+        else:
+            self.breed_params = {}
+
+        ic_type = scenario_config["ic_config"].split(";")[0]
+        self.sampler_t = get_sampler_class_type(
+            ic_type=ic_type,
+            is_breed=self.is_breed_study
+        )
+        self.set_parameter_sampler(
+            sampler_t=self.sampler_t,  # set this in child
+            **self.breed_params,
+            seed=self.seed,
+            l_bounds=self.l_bounds,
+            u_bounds=self.u_bounds,
+            dtype=np.float32
+        )
 
         out = vutils.load_validation_data(
             validation_dir=self.dl_config.get("validation_directory"),
@@ -34,6 +70,7 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
             nb_time_steps=self.nb_time_steps
         )
         self.valid_dataset, self.valid_dataloader, self.valid_parameters = out
+        self.opt_state = None
 
     @override
     def setup_environment(self):
@@ -84,7 +121,7 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
         logger.info(f"BATCH={batch_id} loss={batch_loss:.2e}")
         self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_id)
 
-        if self.sampler_type == "breed":
+        if self.is_breed_study:
             loss_per_sample = torch.tensor(loss_per_sample.tolist())
             batch_loss = torch.tensor(batch_loss.item())
             batch_loss_relative = \
@@ -106,7 +143,7 @@ class BaseAPEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
         if self.valid_dataloader is not None and self.rank == 0:
             val_loss = 0.0
             count = 0
-            for v_batch_id, valid_batch_data in enumerate(self.valid_dataloader):
+            for _, valid_batch_data in enumerate(self.valid_dataloader):
                 u_prev, u_next, sim_ids = valid_batch_data
                 u_prev = jnp.asarray(u_prev)
                 u_next = jnp.asarray(u_next)

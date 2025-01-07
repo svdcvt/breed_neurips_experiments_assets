@@ -17,6 +17,8 @@
         "parameter_sweep_size": 100,
         "nb_time_steps": 100,
         "nb_parameters": 2,
+        "l_bounds": [-1.0, 0.0],
+        "u_bounds": [1.0, "2 * np.pi"],
         "seed": 54321,
         "simulation_timeout": 60,
         "crashes_before_redraw": 1,

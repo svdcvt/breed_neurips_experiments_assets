@@ -23,8 +23,8 @@ def get_scenario(name, **scenario_config):
 
 
 class MelissaSpecificScenario:
-    def __init__(self, scenario_name, **scenario_config):
-        self.scenario_name = scenario_name
+    def __init__(self, name, **scenario_config):
+        self.scenario_name = name
         self.scenario = get_scenario(self.scenario_name, **scenario_config)
         self.num_spatial_dims = self.scenario.num_spatial_dims
         self.num_channels = self.scenario.num_channels
@@ -45,7 +45,7 @@ class MelissaSpecificScenario:
     def get_stepper(self):
         return self.scenario.get_stepper()
 
-    def get_ic(self, sampled_ic_config: str):
+    def make_ic(self, sampled_ic_config: str):
         return icgen.make_ic(
             self.num_spatial_dims,
             self.num_channels,
