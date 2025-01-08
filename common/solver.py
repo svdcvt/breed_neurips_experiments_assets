@@ -18,6 +18,7 @@ from melissa_api import (  # type: ignore
 from melissa.launcher.schema import CONFIG_PARSE_MODE  # type: ignore
 
 from scenarios import MelissaSpecificScenario
+from common import VALIDATION_DIR
 
 try:
     with open(os.getenv("CONFIG_FILE")) as json_file:
@@ -29,8 +30,6 @@ except Exception as e:
         "to load the scenario configuration for the solver."
     )
 
-VALIDATION_DIR = "trajectories"
-VALDIATION_INPUT_PARAM_FILE = f"{VALIDATION_DIR}/input_parameters.npy"
 SCENARIO_CONFIG = CONFIG_DICT["study_options"]["scenario_config"]
 NB_STEPS = CONFIG_DICT["study_options"]["nb_time_steps"]
 FIELD_PREV_POSITION = "preposition"

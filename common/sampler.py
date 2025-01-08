@@ -1,4 +1,5 @@
-import jax
+import os
+import jax.random as jr
 import numpy as np
 import jax.numpy as jnp
 from abc import abstractmethod
@@ -6,10 +7,13 @@ from typing_extensions import override
 
 from melissa.server.parameters import (  # type: ignore
     BaseExperiment,
+    StaticExperiment
 )
 from melissa.server.deep_learning.active_sampling import (  # type: ignore
     DefaultBreeder
 )
+
+from common import VALDIATION_INPUT_PARAM_FILE, IC_DIR
 
 
 def replace_with_error_handling(original_str, old, new):
@@ -25,8 +29,8 @@ class JaxAPEBenchSamplerMixIn:
         self.ic_config = ic_config
 
     def make_keys(self):
-        main_key = jax.random.PRNGKey(self.seed)
-        return jax.random.split(main_key, self.nb_parameters)
+        main_key = jr.PRNGKey(self.seed)
+        return jr.split(main_key, self.nb_parameters)
 
     # since jax relies on keys we need to change them while resampling,
     # otherwise it will produce the same values
@@ -34,7 +38,11 @@ class JaxAPEBenchSamplerMixIn:
     @override
     def get_non_breed_samples(self, nb_samples):
         samples = super().get_non_breed_samples(nb_samples)
-        self.seed += 1
+        self.seed = np.random.randint(
+            low=0,
+            high=10000,
+            size=1
+        ).item()
         self.param_keys = self.make_keys()
 
         return samples
@@ -66,6 +74,28 @@ class JaxAPEBenchSamplerMixIn:
         ]
 
 
+class JaxAPEBenchSamplerFileSaver:
+    def __init__(self, scenario):
+        self.scenario = scenario
+
+    def produce_ic(self, nb_samples, is_valid=False):
+        if is_valid:
+            self.scenario.num_test_samples = nb_samples
+            return self.scenario.get_test_ic_set()
+        self.scenario.num_train_samples = nb_samples
+        return self.scenario.get_train_ic_set()
+
+    def save_all(self, samples, is_valid=False):
+        if is_valid:
+            jnp.save(VALDIATION_INPUT_PARAM_FILE, samples)
+        else:
+            os.makedirs(IC_DIR, exist_ok=True)
+            for sim_id in samples:
+                jnp.save(
+                    f"{IC_DIR}/sim{sim_id}.npy", samples[sim_id]
+                )
+
+
 class SineWaveSamplerMixIn(JaxAPEBenchSamplerMixIn):
 
     def __init__(self, ic_config):
@@ -77,11 +107,11 @@ class SineWaveSamplerMixIn(JaxAPEBenchSamplerMixIn):
 
     @override
     def sample(self, nb_samples=1):
-        amp = jax.random.uniform(
+        amp = jr.uniform(
             self.amp_key, (nb_samples,),
             minval=self.l_bounds[0], maxval=self.u_bounds[0]
         )
-        phs = jax.random.uniform(
+        phs = jr.uniform(
             self.phs_key, (nb_samples,),
             minval=self.l_bounds[1], maxval=self.u_bounds[1]
         )
@@ -89,6 +119,41 @@ class SineWaveSamplerMixIn(JaxAPEBenchSamplerMixIn):
         return np.asarray(
             jnp.stack((amp, phs), axis=1).squeeze()
         ).astype(self.dtype)
+
+
+class ScenarioClassicSampler(JaxAPEBenchSamplerFileSaver, StaticExperiment):
+    def __init__(self, scenario, is_valid=False, **kwargs):
+        StaticExperiment.__init__(self, **kwargs)
+        JaxAPEBenchSamplerFileSaver.__init__(self, scenario)
+        samples = self.produce_ic(self.nb_sims, is_valid)
+        self.set_parameters(np.asarray(samples))
+
+    @override
+    def draw(self):
+        params = super().draw()
+        sim_id = self.current_index
+        ic_path = f"{IC_DIR}/sim{sim_id}.npy"
+        jnp.save(ic_path, params)
+        return [
+            f"--ic-path={ic_path}"
+        ]
+
+
+class ScenarioBreedSampler(JaxAPEBenchSamplerFileSaver, DefaultBreeder):
+    @override
+    def get_non_breed_samples(self, nb_samples):
+        samples = self.produce_ic(nb_samples)
+        return samples
+
+    @override
+    def draw(self):
+        params = super().draw()
+        sim_id = self.current_index
+        ic_path = f"{IC_DIR}/sim{sim_id}.npy"
+        jnp.save(ic_path, params)
+        return [
+            f"--ic-path={ic_path}"
+        ]
 
 
 class SineWaveClassicSampler(SineWaveSamplerMixIn, BaseExperiment):

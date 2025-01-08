@@ -1,3 +1,4 @@
+# flake8: noqa
 import logging
 
 from typing_extensions import override
@@ -17,6 +18,7 @@ from melissa.server.deep_learning.active_sampling.active_sampling_server import 
 import train_utils as tutils
 import valid_utils as vutils
 from sampler import get_sampler_class_type
+from scenarios import MelissaSpecificScenario
 
 
 logger = logging.getLogger("melissa")
@@ -32,7 +34,7 @@ class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
         study_options = config_dict["study_options"]
         scenario_config = study_options["scenario_config"]
         self.seed = study_options["seed"]
-        self.l_bounds = study_options["l_bounds"]
+        self.l_bounds = study_options["l_bouscenario_confignds"]
         self.u_bounds = study_options["u_bounds"]
 
         # eval() for string type bounds from json
@@ -48,7 +50,7 @@ class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
             self.breed_params = self.ac_config.get("breed_params", dict())
         else:
             self.breed_params = {}
-
+        self.scenario = MelissaSpecificScenario(**scenario_config)
         ic_type = scenario_config["ic_config"].split(";")[0]
         self.sampler_t = get_sampler_class_type(
             ic_type=ic_type,
@@ -63,6 +65,7 @@ class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
             dtype=np.float32
         )
 
+        self.mesh_shape = self.scenario.get_shape()
         out = vutils.load_validation_data(
             validation_dir=self.dl_config.get("validation_directory"),
             seed=self.seed,
@@ -158,8 +161,8 @@ class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
     @override
     def prepare_training_attributes(self):
 
-        model = self.get_mlp()
-        optimizer = self.get_optimizer()
+        model = self.scenario.get_network()
+        optimizer = self.scenario.get_optimizer()
         logger.info(f"Model parameters count: {pdeqx.count_parameters(model)}")
 
         return model, optimizer
@@ -169,8 +172,8 @@ class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
         u_prev = msg.data["preposition"]
         u_next = msg.data["position"]
 
-        u_prev = u_prev.reshape(1, *self.mesh_shape)
-        u_next = u_next.reshape(1, *self.mesh_shape)
+        u_prev = u_prev.reshape(*self.mesh_shape)
+        u_next = u_next.reshape(*self.mesh_shape)
 
         u_prev = np.array(u_prev, copy=True)
         u_next = np.array(u_next, copy=True)

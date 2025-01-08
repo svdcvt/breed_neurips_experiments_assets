@@ -1,11 +1,13 @@
 {
-    "server_filename": "$APEBENCH_ROOT/test/common/server.py",
+    "server_filename": "$APEBENCH_ROOT/test/common/apebench_server.py",
     "server_class": "APEBenchServer",
     "output_dir": "STUDY_OUT",
     "study_options": {
         "scenario_config": {
             "name": "advection",
-            "ic_config": "sine;<amp>;<phs>;true;true"
+            "ic_config": "sine;<amp>;<phs>;true;true",
+            "num_spatial_dims": 1,
+            "num_channels": 1
         },
         "field_names": [
             "preposition",
@@ -15,7 +17,7 @@
         "nb_time_steps": 100,
         "nb_parameters": 2,
         "l_bounds": [-1.0, 0.0],
-        "u_bounds": [1.0, "2 * np.pi"],
+        "u_bounds": [1.0, "2 * jnp.pi"],
         "seed": 1234,
         "simulation_timeout": 60,
         "crashes_before_redraw": 1,
@@ -27,7 +29,7 @@
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": 1.0,
+            "sigma": -1.0,
             "start": 0.5,
             "end": 0.9,
             "breakpoint": 3,
@@ -35,7 +37,7 @@
         }
     },
     "dl_config": {
-        "validation_directory": "$ADVECTION_DIR/validation/1d_1000/trajectories",
+        "validation_directory": "$ADVECTION_DIR/validation/1Dx160/trajectories",
         "width_size": 64,
         "depth": 3,
         "lr": 1e-4,

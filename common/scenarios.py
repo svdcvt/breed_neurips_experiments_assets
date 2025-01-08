@@ -1,4 +1,5 @@
-import ic_generator as icgen
+import jax
+import common.ic_generation as icgen
 from apebench.scenarios.difficulty import (
     Advection,
     Diffusion,
@@ -28,15 +29,18 @@ class MelissaSpecificScenario:
         self.scenario = get_scenario(self.scenario_name, **scenario_config)
         self.num_spatial_dims = self.scenario.num_spatial_dims
         self.num_channels = self.scenario.num_channels
+        self.num_points = self.scenario.num_points
+        self.domain_extent = self.scenario.domain_extent
+        self.dt = self.scenario.dt
 
     def get_shape(self):
         return (self.num_channels,) + \
             (self.scenario.num_points,) * self.num_spatial_dims
 
-    def get_network(self, network_config: str, key):
+    def get_network(self, network_config: str):
         return self.scenario.get_network(
             network_config=network_config,
-            key=key
+            key=jax.random.PRNGKey(0)
         )
 
     def get_optimizer(self):
@@ -47,7 +51,5 @@ class MelissaSpecificScenario:
 
     def make_ic(self, sampled_ic_config: str):
         return icgen.make_ic(
-            self.num_spatial_dims,
-            self.num_channels,
-            sampled_ic_config
+            sampled_ic_config,
         )
