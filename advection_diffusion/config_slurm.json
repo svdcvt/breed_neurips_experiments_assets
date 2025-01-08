@@ -4,9 +4,9 @@
     "output_dir": "STUDY_OUT",
     "study_options": {
         "scenario_config": {
-            "scenario_name": "apebench.scenarios.difficulty.Advection",
-            "stepper_name": "exponax.stepper.Advection",
-            "ic_config": "sine;<amp>;<phs>;false;false",
+            "scenario_name": "apebench.scenarios.difficulty.AdvectionDiffusion",
+            "stepper_name": "exponax.stepper.AdvectionDiffusion",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
             "network_config": "MLP;64;3;relu",
             "num_spatial_dims": 1,
             "domain_extent": 2.0,
@@ -23,9 +23,9 @@
         ],
         "parameter_sweep_size": 200,
         "nb_time_steps": 100,
-        "nb_parameters": 2,
-        "l_bounds": [-1.0, 0.0],
-        "u_bounds": [1.0, "2 * jnp.pi"],
+        "nb_parameters": 4,
+        "l_bounds": [-1.0, 0.0, -1.0, 0.0],
+        "u_bounds": [1.0, "2 * jnp.pi", 1.0, "2 * jnp.pi"],
         "seed": 1234,
         "simulation_timeout": 60,
         "crashes_before_redraw": 1,
@@ -45,7 +45,7 @@
         }
     },
     "dl_config": {
-        // "validation_directory": "$ADVECTION_DIR/validation/1Dx160/trajectories",
+        "validation_directory": "$APEBENCH_ROOT/test/adv_diff/validation/trajectories",
         "nb_batches_update": 100,
         "batch_size": 128, 
         "per_server_watermark": 800,
@@ -86,7 +86,7 @@
         "command_default_args": [],
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
-            "export CONFIG_FILE=$APEBENCH_ROOT/test/advection/config_slurm.json",
+            "export CONFIG_FILE=config_slurm.json",
             "export JAX_PLATFORMS=cpu"
         ]
     },

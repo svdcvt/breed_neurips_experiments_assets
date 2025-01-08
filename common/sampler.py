@@ -12,7 +12,7 @@ from melissa.server.deep_learning.active_sampling import (  # type: ignore
     DefaultBreeder
 )
 
-from constants import VALIDATION_DIR, VALDIATION_INPUT_PARAM_FILE, IC_DIR
+from constants import VALIDATION_DIR, VALIDATION_INPUT_PARAM_FILE
 
 
 def replace_with_error_handling(original_str, old, new):
@@ -74,12 +74,63 @@ class JaxSamplerMixIn:
         sampled_ic_config = self.make_sampled_ic_config(sampled_params)
         if self.is_valid and self.current_index == self.nb_sims:
             jnp.save(
-                VALDIATION_INPUT_PARAM_FILE,
+                VALIDATION_INPUT_PARAM_FILE,
                 self.parameters
             )
         return [
             f'--ic-config="{sampled_ic_config}"'
         ]
+
+
+class SineWaveSamplerMixIn(JaxSamplerMixIn):
+
+    def __init__(self, ic_config, is_valid=False):
+        JaxSamplerMixIn.__init__(self, ic_config, is_valid)
+
+    def get_placeholders(self):
+        out = []
+        for i in range(1, self.nb_params // 2):
+            out.extend([f"<amp{i}>", f"<phs{i}>"])
+        return out
+
+    @override
+    def sample(self, nb_samples=1):
+        params = jr.uniform(
+            self.param_keys,
+            shape=(nb_samples, self.nb_params),
+            minval=self.l_bounds,
+            maxval=self.u_bounds
+        )
+
+        return np.asarray(params.squeeze()).astype(self.dtype)
+
+
+class SineWaveClassicSampler(SineWaveSamplerMixIn, StaticExperiment):
+    def __init__(self, ic_config, is_valid=False, **kwargs):
+        StaticExperiment.__init__(self, **kwargs)
+        SineWaveSamplerMixIn.__init__(self, ic_config, is_valid)
+
+
+class SineWaveBreedSampler(SineWaveSamplerMixIn, DefaultBreeder):
+    def __init__(self, ic_config, **kwargs):
+        DefaultBreeder.__init__(self, **kwargs)
+        SineWaveSamplerMixIn.__init__(self, ic_config)
+
+
+CLASSIC_SAMPLERS = {
+    "sine": SineWaveClassicSampler,
+    "sine_sup": SineWaveClassicSampler
+}
+
+BREED_SAMPLERS = {
+    "sine": SineWaveBreedSampler,
+    "sine_sup": SineWaveBreedSampler
+}
+
+
+def get_sampler_class_type(ic_type: str, is_breed: bool):
+    d = BREED_SAMPLERS if is_breed else CLASSIC_SAMPLERS
+    return d[ic_type]
 
 
 # class JaxAPEBenchSamplerFileSaver:
@@ -105,30 +156,6 @@ class JaxSamplerMixIn:
 #                     f"{IC_DIR}/sim{sim_id}.npy", samples[sim_id]
 #                 )
 # 
-
-class SineWaveSamplerMixIn(JaxSamplerMixIn):
-
-    def __init__(self, ic_config, is_valid=False):
-        JaxSamplerMixIn.__init__(self, ic_config, is_valid)
-        self.amp_key, self.phs_key = self.param_keys
-
-    def get_placeholders(self):
-        return ["<amp>", "<phs>"]
-
-    @override
-    def sample(self, nb_samples=1):
-        amp = jr.uniform(
-            self.amp_key, (nb_samples,),
-            minval=self.l_bounds[0], maxval=self.u_bounds[0]
-        )
-        phs = jr.uniform(
-            self.phs_key, (nb_samples,),
-            minval=self.l_bounds[1], maxval=self.u_bounds[1]
-        )
-
-        return np.asarray(
-            jnp.stack((amp, phs), axis=1).squeeze()
-        ).astype(self.dtype)
 
 
 # class ScenarioClassicSampler(JaxAPEBenchSamplerFileSaver, StaticExperiment):
@@ -165,28 +192,3 @@ class SineWaveSamplerMixIn(JaxSamplerMixIn):
 #             f"--ic-path={ic_path}"
 #         ]
 # 
-
-class SineWaveClassicSampler(SineWaveSamplerMixIn, StaticExperiment):
-    def __init__(self, ic_config, is_valid=False, **kwargs):
-        StaticExperiment.__init__(self, **kwargs)
-        SineWaveSamplerMixIn.__init__(self, ic_config, is_valid)
-
-
-class SineWaveBreedSampler(SineWaveSamplerMixIn, DefaultBreeder):
-    def __init__(self, ic_config, **kwargs):
-        DefaultBreeder.__init__(self, **kwargs)
-        SineWaveSamplerMixIn.__init__(self, ic_config)
-
-
-CLASSIC_SAMPLERS = {
-    "sine": SineWaveClassicSampler
-}
-
-BREED_SAMPLERS = {
-    "sine": SineWaveBreedSampler
-}
-
-
-def get_sampler_class_type(ic_type: str, is_breed: bool):
-    d = BREED_SAMPLERS if is_breed else CLASSIC_SAMPLERS
-    return d[ic_type]

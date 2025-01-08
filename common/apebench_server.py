@@ -10,7 +10,7 @@ import pdequinox as pdeqx
 from melissa.server.deep_learning.tensorboard_logger import (  # type: ignore
     TorchTensorboardLogger
 )
-from melissa.server.offline_server import OfflineServer
+from melissa.server.offline_server import OfflineServer  # type: ignore
 from melissa.server.deep_learning import active_sampling  # type: ignore
 from melissa.server.deep_learning.active_sampling.active_sampling_server import (  # type: ignore
     ExperimentalDeepMelissaActiveSamplingServer

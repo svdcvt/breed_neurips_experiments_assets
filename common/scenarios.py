@@ -1,6 +1,4 @@
 import jax
-import apebench
-import exponax
 
 import ic_generation as icgen
 
@@ -14,7 +12,12 @@ def get_apebench_scenario(name, **scenario_config):
         print(e)
 
 
-def get_exponax_stepper(name, num_spatial_dims, domain_extent, num_points, dt, **stepper_config):
+def get_exponax_stepper(name,
+                        num_spatial_dims,
+                        domain_extent,
+                        num_points,
+                        dt,
+                        **stepper_config):
     try:
         stepper_t = eval(f"{name}")
         stepper = stepper_t(
@@ -31,27 +34,34 @@ def get_exponax_stepper(name, num_spatial_dims, domain_extent, num_points, dt, *
 
 class MelissaSpecificScenario:
     def __init__(self,
-                scenario_name,
-                stepper_name=None,
-                sampled_ic_config=None,
-                domain_extent=None,
-                dt=None,
-                network_config="MLP;64;3;relu",
-                stepper_config={},
-                input_fn_config={},
-                **scenario_config):
+                 scenario_name,
+                 stepper_name=None,
+                 sampled_ic_config=None,
+                 domain_extent=None,
+                 dt=None,
+                 network_config="MLP;64;3;relu",
+                 stepper_config={},
+                 input_fn_config={},
+                 **scenario_config):
         self.scenario_name = scenario_name
         self.stepper_name = stepper_name
-        self.scenario = get_apebench_scenario(self.scenario_name, **scenario_config)
+        self.scenario = get_apebench_scenario(
+            self.scenario_name,
+            **scenario_config
+        )
         self.network_config = network_config
         self.num_spatial_dims = self.scenario.num_spatial_dims
         self.domain_extent = domain_extent
-        if self.domain_extent is None and hasattr(self.scenario, "domain_extent"):
+        if (
+            self.domain_extent is None
+            and hasattr(self.scenario, "domain_extent")
+        ):
             self.domain_extent = self.scenario.domain_extent
         self.num_channels = self.scenario.num_channels
         self.num_points = self.scenario.num_points
         self.dt = dt if dt else self.scenario.dt
-        self.sampled_ic_config = sampled_ic_config if sampled_ic_config else scenario_config["ic_config"]
+        self.sampled_ic_config = sampled_ic_config \
+            if sampled_ic_config else scenario_config["ic_config"]
 
     def get_shape(self):
         return (self.num_channels,) + \

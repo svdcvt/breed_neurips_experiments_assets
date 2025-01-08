@@ -1,5 +1,5 @@
 IC_DIR = "initial_conditions"
 VALIDATION_DIR = "trajectories"
-VALDIATION_INPUT_PARAM_FILE = f"{VALIDATION_DIR}/input_parameters.npy"
+VALIDATION_INPUT_PARAM_FILE = f"{VALIDATION_DIR}/input_parameters.npy"
 FIELD_PREV_POSITION = "preposition"
 FIELD_POSITION = "position"
