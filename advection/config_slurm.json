@@ -4,10 +4,18 @@
     "output_dir": "STUDY_OUT",
     "study_options": {
         "scenario_config": {
-            "name": "advection",
-            "ic_config": "sine;<amp>;<phs>;true;true",
+            "scenario_name": "apebench.scenarios.difficulty.Advection",
+            "stepper_name": "exponax.stepper.Advection",
+            "ic_config": "sine;<amp>;<phs>;false;false",
+            "network_config": "MLP;64;3;relu",
             "num_spatial_dims": 1,
-            "num_channels": 1
+            "domain_extent": 2.0,
+            "num_channels": 1,
+            "dt": 0.1,
+            "stepper_config": {
+                "velocity": 1.0
+            },
+            "input_fn_config": {}
         },
         "field_names": [
             "preposition",
@@ -37,10 +45,7 @@
         }
     },
     "dl_config": {
-        "validation_directory": "$ADVECTION_DIR/validation/1Dx160/trajectories",
-        "width_size": 64,
-        "depth": 3,
-        "lr": 1e-4,
+        // "validation_directory": "$ADVECTION_DIR/validation/1Dx160/trajectories",
         "nb_batches_update": 100,
         "batch_size": 128, 
         "per_server_watermark": 800,
@@ -81,16 +86,14 @@
         "command_default_args": [],
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
-            "export CONFIG_FILE=$ADVECTION_DIR/config_slurm.json",
+            "export CONFIG_FILE=$APEBENCH_ROOT/test/advection/config_slurm.json",
             "export JAX_PLATFORMS=cpu"
         ]
     },
     "server_config": {
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
-            "module load nccl/2.21.5-1-cuda",
-            "export TORCH_PATH=$APEBENCH_ROOT/MELISSA/install/torch",
-            "export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT/test:$ADVECTION_DIR:$TORCH_PATH"
+            "module load nccl/2.21.5-1-cuda"
         ]
     }
 }

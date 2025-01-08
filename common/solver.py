@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#! /usr/bin/env python3
 
 import os
 import time
@@ -18,7 +18,11 @@ from melissa_api import (  # type: ignore
 from melissa.launcher.schema import CONFIG_PARSE_MODE  # type: ignore
 
 from scenarios import MelissaSpecificScenario
-from common import VALIDATION_DIR
+from constants import (
+    FIELD_PREV_POSITION,
+    FIELD_POSITION,
+    VALIDATION_DIR
+)
 
 try:
     with open(os.getenv("CONFIG_FILE")) as json_file:
@@ -29,11 +33,10 @@ except Exception as e:
         "Please set CONFIG_FILE with configuration file path",
         "to load the scenario configuration for the solver."
     )
+    raise Exception from e
 
 SCENARIO_CONFIG = CONFIG_DICT["study_options"]["scenario_config"]
 NB_STEPS = CONFIG_DICT["study_options"]["nb_time_steps"]
-FIELD_PREV_POSITION = "preposition"
-FIELD_POSITION = "position"
 
 
 def get_default_parser():
@@ -78,13 +81,13 @@ def online(stepper, ic, flattened_mesh_size):
 
 
 def offline(stepper, ic):
-    rollout_advection_stepper = ex.rollout(
+    rollout_stepper = ex.rollout(
         stepper,
         NB_STEPS,
         include_init=True
     )
     st = time.time()
-    trajectory = rollout_advection_stepper(ic)
+    trajectory = rollout_stepper(ic)
     sim_id = os.getenv("MELISSA_SIMU_ID")
     os.makedirs(VALIDATION_DIR, exist_ok=True)
     jnp.save(f"{VALIDATION_DIR}/sim{sim_id}.npy", trajectory)
@@ -92,11 +95,16 @@ def offline(stepper, ic):
 
 
 def run_solver(store, sampled_ic_config):
-    scenario = MelissaSpecificScenario(**SCENARIO_CONFIG)
-    stepper = scenario.get_stepper()
+    scenario = MelissaSpecificScenario(
+        sampled_ic_config=sampled_ic_config,
+        **SCENARIO_CONFIG
+    )
+    stepper_config = SCENARIO_CONFIG.get("stepper_config", {})
+    stepper = scenario.get_stepper(**stepper_config)
     data_shape = scenario.get_shape()
     flattened_mesh_size = np.prod(data_shape)
-    ic = scenario.make_ic(sampled_ic_config)
+    input_fn_config = SCENARIO_CONFIG.get("input_fn_config", {})
+    ic = scenario.make_ic(**input_fn_config)
 
     if store:
         offline(stepper, ic)
@@ -107,4 +115,6 @@ def run_solver(store, sampled_ic_config):
 if __name__ == "__main__":
     parser = get_default_parser()
     args = parser.parse_args()
+    # the following can be class-specific default arguments
+    # to be overriden
     run_solver(args.store, args.ic_config)

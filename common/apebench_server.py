@@ -10,6 +10,7 @@ import pdequinox as pdeqx
 from melissa.server.deep_learning.tensorboard_logger import (  # type: ignore
     TorchTensorboardLogger
 )
+from melissa.server.offline_server import OfflineServer
 from melissa.server.deep_learning import active_sampling  # type: ignore
 from melissa.server.deep_learning.active_sampling.active_sampling_server import (  # type: ignore
     ExperimentalDeepMelissaActiveSamplingServer
@@ -24,25 +25,21 @@ from scenarios import MelissaSpecificScenario
 logger = logging.getLogger("melissa")
 
 
-# TODO: Melissa DL interface will change in the future
-# purely from the training perspective. Dataset -> Dataloader -> training
-class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
-
-    def __init__(self, config_dict):
+class CommonInitMixIn:
+    def __init__(self, config_dict, is_valid=False):
         super().__init__(config_dict)
-
         study_options = config_dict["study_options"]
         scenario_config = study_options["scenario_config"]
         self.seed = study_options["seed"]
-        self.l_bounds = study_options["l_bouscenario_confignds"]
-        self.u_bounds = study_options["u_bounds"]
+        l_bounds = study_options["l_bounds"]
+        u_bounds = study_options["u_bounds"]
 
         # eval() for string type bounds from json
-        for i in range(self.nb_parameters):
-            if isinstance(self.l_bounds[i], str):
-                self.l_bounds[i] = eval(self.l_bounds[i])
-            if isinstance(self.u_bounds[i], str):
-                self.u_bounds[i] = eval(self.u_bounds[i])
+        for i in range(len(l_bounds)):
+            if isinstance(l_bounds[i], str):
+                l_bounds[i] = eval(l_bounds[i])
+            if isinstance(u_bounds[i], str):
+                u_bounds[i] = eval(u_bounds[i])
 
         sampler_type = config_dict.get("sampler_type", "uniform")
         self.is_breed_study = sampler_type == "breed"
@@ -51,19 +48,36 @@ class APEBenchServer(ExperimentalDeepMelissaActiveSamplingServer):
         else:
             self.breed_params = {}
         self.scenario = MelissaSpecificScenario(**scenario_config)
-        ic_type = scenario_config["ic_config"].split(";")[0]
+        ic_config = scenario_config["ic_config"]
+        ic_type = ic_config.split(";")[0]
         self.sampler_t = get_sampler_class_type(
             ic_type=ic_type,
             is_breed=self.is_breed_study
         )
         self.set_parameter_sampler(
-            sampler_t=self.sampler_t,  # set this in child
+            sampler_t=self.sampler_t,
+            ic_config=ic_config,
+            is_valid=is_valid,
+            # scenario=self.scenario,
             **self.breed_params,
             seed=self.seed,
-            l_bounds=self.l_bounds,
-            u_bounds=self.u_bounds,
+            l_bounds=l_bounds,
+            u_bounds=u_bounds,
             dtype=np.float32
         )
+
+
+class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
+    def __init__(self, config_dict):
+        CommonInitMixIn.__init__(self, config_dict, is_valid=True)
+
+
+# TODO: Melissa DL interface will change in the future
+# purely from the training perspective. Dataset -> Dataloader -> training
+class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServer):
+
+    def __init__(self, config_dict):
+        CommonInitMixIn.__init__(self, config_dict)
 
         self.mesh_shape = self.scenario.get_shape()
         out = vutils.load_validation_data(

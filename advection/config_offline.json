@@ -1,19 +1,27 @@
 {
-    "server_filename": "$ADVECTION_DIR/offline_server.py",
-    "server_class": "OfflineServer",
-    "output_dir": "advection1d",
+    "server_filename": "$APEBENCH_ROOT/test/common/apebench_server.py",
+    "server_class": "APEBenchOfflineServer",
+    "output_dir": "VALIDATION_OUT_advection1d",
     "study_options": {
         "scenario_config": {
-            "name": "advection",
-            "ic_config": "sine;<amp>;<phs>;true;true",
+            "scenario_name": "apebench.scenarios.difficulty.Advection",
+            "stepper_name": "exponax.stepper.Advection",
+            "ic_config": "sine;<amp>;<phs>;false;false",
+            "network_config": "MLP;64;3;relu",
             "num_spatial_dims": 1,
-            "num_channels": 1
+            "domain_extent": 2.0,
+            "num_channels": 1,
+            "dt": 0.1,
+            "stepper_config": {
+                "velocity": 1.0
+            },
+            "input_fn_config": {}
         },
         "field_names": [
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 100,
+        "parameter_sweep_size": 10,
         "nb_time_steps": 100,
         "nb_parameters": 2,
         "l_bounds": [-1.0, 0.0],
@@ -22,13 +30,6 @@
         "simulation_timeout": 60,
         "crashes_before_redraw": 1,
         "verbosity": 2
-    },
-    "sa_config": {
-        "mean": false,
-        "variance": false,
-        "skewness": false,
-        "kurtosis": false,
-        "sobol_indices": false
     },
     "launcher_config": {
         "scheduler": "slurm-global",
@@ -40,14 +41,14 @@
         "scheduler_arg_client": [
             "--het-group=1",
             "--ntasks=1",
-            "--time=00:05:00",
+            "--time=00:01:00",
             "--exclusive"
         ],
-        "job_limit": 21,
-        "server_timeout": 120,
+        "job_limit": 11,
+        "server_timeout": 60,
         "timer_delay": 10,
         "fault_tolerance": false,
-        "verbosity": 2,
+        "verbosity": 5,
         "std_output": false,
         "http_port": 8888
     },
@@ -56,17 +57,16 @@
         "command_default_args": ["--store"],
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
-            "export CONFIG_FILE=$ADVECTION_DIR/config_offline.json",
-            "export JAX_PLATFORMS=cpu"
+            "export CONFIG_FILE=$APEBENCH_ROOT/test/advection/config_offline.json",
+            "export JAX_PLATFORMS=cpu",
+            "echo $PYTHONPATH"
         ]
     },
     "server_config": {
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
             "module load nccl/2.21.5-1-cuda",
-            "export JAX_PLATFORMS=cpu",
-            "export TORCH_PATH=$APEBENCH_ROOT/MELISSA/install/torch",
-            "export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT/test:$ADVECTION_DIR:$TORCH_PATH"
+            "export JAX_PLATFORMS=cpu"
         ]
     }
 

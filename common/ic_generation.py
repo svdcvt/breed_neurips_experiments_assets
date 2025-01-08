@@ -3,12 +3,15 @@ import jax.numpy as jnp
 import exponax as ex
 from abc import ABC, abstractmethod
 
-from common import IC_DIR
+from constants import IC_DIR
 
 
 class BaseICMaker(ABC):
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, num_spatial_dims, domain_extent, num_points, sampled_ic_config):
+        self.num_spatial_dims = num_spatial_dims
+        self.domain_extent = domain_extent
+        self.num_points = num_points
+        self.sampled_ic_config = sampled_ic_config
         self.ic_maker = None
 
     def input_from_file(self):
@@ -25,58 +28,43 @@ class BaseICMaker(ABC):
 
 
 class SineWave(BaseICMaker):
-    def __init__(self, config):
-        super().__init__(config)
-        config_parts = config.split(";")
+    def __init__(self, num_spatial_dims, domain_extent, num_points, sampled_ic_config):
+        super().__init__(num_spatial_dims, domain_extent, num_points, sampled_ic_config)
+        # ic_config "sine;<amp>;<phs>;true;true"
+        config_parts = self.sampled_ic_config.split(";")
         self.ic_maker = ex.ic.SineWaves1d(
-            domain_extent=float(config_parts[3]),
-            amplitudes=(float(config_parts[4]),),
-            phases=(float(config_parts[5]),),
-            zero_mean=config_parts[6].lower() == "true",
-            max_one=config_parts[7].lower() == "true",
+            domain_extent=self.domain_extent,
+            amplitudes=(float(config_parts[1]),),
+            wavenumbers=(1,),
+            phases=(float(config_parts[2]),),
+            std_one=config_parts[-2].lower() == "true",
+            max_one=config_parts[-1].lower() == "true",
         )
 
-    def process_input(self,
-                      num_spatial_dims,
-                      domain_extent,
-                      num_points,
-                      **extra_args):
+    def process_input(self, **extra_args):
 
         return ex.make_grid(
-            num_spatial_dims,
-            domain_extent,
-            num_points,
+            self.num_spatial_dims,
+            self.domain_extent,
+            self.num_points,
             **extra_args
         )
 
-    def __call__(self,
-                 num_spatial_dims,
-                 domain_extent,
-                 num_points,
-                 **extra_args):
+    def __call__(self, **extra_args):
 
-        input_ = self.process_input(
-            num_spatial_dims,
-            domain_extent,
-            num_points,
-            **extra_args
-        )
-
+        input_ = self.process_input(**extra_args)
         return self.ic_maker(input_)
 
 
 CUSTOM_IC_MAKERS = {
     "sine": SineWave,
-    "fourier": "save ex.ic.RandomTruncatedFourierSeries to files",
-    "diffused": "save ex.ic.DiffusedNoise to files",
-    "grf": "save ex.ic.GaussianRandomField to files",
 }
 
 
-def make_ic(sampled_ic_config, **input_fn_args):
+def make_ic(num_spatial_dims, domain_extent, num_points, sampled_ic_config, **extra_args):
     ic_type = sampled_ic_config.split(";")[0]
     ic_maker = CUSTOM_IC_MAKERS[ic_type]
     if isinstance(ic_maker, str):
         print(ic_maker)
         os.exit(1)
-    return ic_maker(**input_fn_args)
+    return ic_maker(num_spatial_dims, domain_extent, num_points, sampled_ic_config, **extra_args)
