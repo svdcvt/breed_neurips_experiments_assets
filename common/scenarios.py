@@ -91,10 +91,11 @@ class MelissaSpecificScenario:
             )
         return self.scenario.get_ref_stepper()
 
-    def make_ic(self, **input_fn_config):
-        return icgen.make_ic(
+    def get_ic_mesh(self, **input_fn_config):
+        ic_maker = icgen.get_ic_maker(
             self.num_spatial_dims,
             self.domain_extent,
             self.num_points,
             self.sampled_ic_config,
-        )(**input_fn_config)
+        )
+        return ic_maker(**input_fn_config)

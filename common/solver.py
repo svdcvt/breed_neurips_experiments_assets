@@ -75,6 +75,7 @@ def online(stepper, ic, flattened_mesh_size):
             np.asarray(u_next).flatten()
         )
         print(f"t={t} solved")
+        u = u_next.copy()
 
     melissa_finalize()
     print(f"Total time taken {time.time() - st:.2f} sec.")
@@ -104,7 +105,7 @@ def run_solver(store, sampled_ic_config):
     data_shape = scenario.get_shape()
     flattened_mesh_size = np.prod(data_shape)
     input_fn_config = SCENARIO_CONFIG.get("input_fn_config", {})
-    ic = scenario.make_ic(**input_fn_config)
+    ic = scenario.get_ic_mesh(**input_fn_config)
 
     if store:
         offline(stepper, ic)

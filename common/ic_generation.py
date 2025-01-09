@@ -93,7 +93,7 @@ CUSTOM_IC_MAKERS = {
 }
 
 
-def make_ic(num_spatial_dims,
+def get_ic_maker(num_spatial_dims,
             domain_extent,
             num_points,
             sampled_ic_config,

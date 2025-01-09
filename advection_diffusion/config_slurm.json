@@ -2,12 +2,13 @@
     "server_filename": "$APEBENCH_ROOT/test/common/apebench_server.py",
     "server_class": "APEBenchServer",
     "output_dir": "STUDY_OUT_adv_diff_1d_breed",
+    "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
             "scenario_name": "apebench.scenarios.difficulty.AdvectionDiffusion",
             "stepper_name": "exponax.stepper.AdvectionDiffusion",
             "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
-            "optim_config": "adam;10_000;warmup_cosine;0.0;1e-3;2_000",
+            "optim_config": "adam;10_000;exp;1e-3;500;0.9;True",
             "network_config": "MLP;64;3;relu",
             "num_spatial_dims": 1,
             "domain_extent": 2.0,
@@ -22,7 +23,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 200,
+        "parameter_sweep_size": 500,
         "nb_time_steps": 100,
         "nb_parameters": 4,
         "l_bounds": [-1.0, 0.0, -1.0, 0.0],
@@ -34,15 +35,15 @@
     },
     "sampler_type": "breed",
     "active_sampling_config": {
-        "nn_updates": 500,
+        "nn_updates": 100,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": -1.0,
-            "start": 0.5,
+            "sigma": [0.01, 0.05, 0.01, 0.05],
+            "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,
-            "sliding_window_size": 50
+            "sliding_window_size": 100
         }
     },
     "dl_config": {
@@ -50,7 +51,7 @@
         "nb_batches_update": 100,
         "batch_size": 128, 
         "per_server_watermark": 800,
-        "buffer_size": 1000,
+        "buffer_size": 2000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
     },
@@ -77,7 +78,7 @@
         "job_limit": 21,
         "server_timeout": 60,
         "timer_delay": 10,
-        "fault_tolerance": true,
+        "fault_tolerance": false,
         "verbosity": 2,
         "std_output": true,
         "http_port": 8898
