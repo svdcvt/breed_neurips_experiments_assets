@@ -25,28 +25,24 @@ class JaxSamplerMixIn:
     """Use this mix-in when you have your specific (non-APEBench) IC sampler.
     For example, the sine wave IC sampler is not used in APEBench."""
     def __init__(self, ic_config, is_valid=False):
-        self.param_keys = self.make_keys()
+        self.main_key = jr.PRNGKey(self.seed)
+        self.make_keys()
         self.ic_config = ic_config
         self.is_valid = is_valid
         if self.is_valid:
             os.makedirs(VALIDATION_DIR, exist_ok=True)
 
     def make_keys(self):
-        main_key = jr.PRNGKey(self.seed)
-        return jr.split(main_key, self.nb_params)
+        self.main_key, self.param_key = jr.split(self.main_key)
 
     # since jax relies on keys we need to change them while resampling,
     # otherwise it will produce the same values
-    # Note: This is only for DefaultBreeder class
+    # note: This is only for required for DefaultBreeder class
+    # as we don't sample more than once in a regular case.
     @override
     def sample(self, nb_samples=1):
         samples = super().sample(nb_samples)
-        self.seed = np.random.randint(
-            low=0,
-            high=10000,
-            size=1
-        ).item()
-        self.param_keys = self.make_keys()
+        self.make_keys()
 
         return samples
 
@@ -89,21 +85,23 @@ class SineWaveSamplerMixIn(JaxSamplerMixIn):
 
     def get_placeholders(self):
         out = []
-        for i in range(1, self.nb_params // 2):
+        for i in range(1, self.nb_params // 2 + 1):
             out.extend([f"<amp{i}>", f"<phs{i}>"])
         return out
 
     @override
     def sample(self, nb_samples=1):
-        params = jr.uniform(
-            self.param_keys,
-            shape=(nb_samples, self.nb_params),
-            minval=self.l_bounds,
-            maxval=self.u_bounds
+        sampled_params = np.asarray(
+            jr.uniform(
+                self.param_key,
+                shape=(nb_samples, self.nb_params),
+                minval=self.l_bounds,
+                maxval=self.u_bounds
+            )
         )
-
-        return np.asarray(params.squeeze()).astype(self.dtype)
-
+        self.make_keys()
+        return sampled_params
+        
 
 class SineWaveClassicSampler(SineWaveSamplerMixIn, StaticExperiment):
     def __init__(self, ic_config, is_valid=False, **kwargs):
@@ -112,7 +110,7 @@ class SineWaveClassicSampler(SineWaveSamplerMixIn, StaticExperiment):
 
 
 class SineWaveBreedSampler(SineWaveSamplerMixIn, DefaultBreeder):
-    def __init__(self, ic_config, **kwargs):
+    def __init__(self, ic_config, is_valid=False, **kwargs):
         DefaultBreeder.__init__(self, **kwargs)
         SineWaveSamplerMixIn.__init__(self, ic_config)
 
@@ -148,7 +146,7 @@ def get_sampler_class_type(ic_type: str, is_breed: bool):
 # 
 #     def save_all(self, samples, is_valid=False):
 #         if is_valid:
-#             jnp.save(VALDIATION_INPUT_PARAM_FILE, samples)
+#             jnp.save(VALIDATION_INPUT_PARAM_FILE, samples)
 #         else:
 #             os.makedirs(IC_DIR, exist_ok=True)
 #             for sim_id in samples:

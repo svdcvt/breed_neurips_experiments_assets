@@ -1,12 +1,13 @@
 {
     "server_filename": "$APEBENCH_ROOT/test/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT",
+    "output_dir": "STUDY_OUT_adv_diff_1d_breed2",
     "study_options": {
         "scenario_config": {
             "scenario_name": "apebench.scenarios.difficulty.AdvectionDiffusion",
             "stepper_name": "exponax.stepper.AdvectionDiffusion",
             "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
+            "optim_config": "adam;10_000;warmup_cosine;0.0;1e-3;2_000",
             "network_config": "MLP;64;3;relu",
             "num_spatial_dims": 1,
             "domain_extent": 2.0,
@@ -31,21 +32,21 @@
         "crashes_before_redraw": 1,
         "verbosity": 2
     },
-    "sampler_type": "uniform",
+    "sampler_type": "breed",
     "active_sampling_config": {
-        "nn_updates": 500,
-        "non_resampling_threshold": 10,
+        "nn_updates": 200,
+        "non_resampling_threshold": 100,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
             "sigma": -1.0,
             "start": 0.5,
             "end": 0.9,
-            "breakpoint": 3,
-            "sliding_window_size": 50
+            "breakpoint": 5,
+            "sliding_window_size": 100
         }
     },
     "dl_config": {
-        "validation_directory": "$APEBENCH_ROOT/test/adv_diff/validation/trajectories",
+        "validation_directory": "$APEBENCH_ROOT/test/advection_diffusion/VALIDATION_OUT_1d_adv_diff/trajectories",
         "nb_batches_update": 100,
         "batch_size": 128, 
         "per_server_watermark": 800,
@@ -76,10 +77,10 @@
         "job_limit": 21,
         "server_timeout": 60,
         "timer_delay": 10,
-        "fault_tolerance": false,
+        "fault_tolerance": true,
         "verbosity": 2,
         "std_output": true,
-        "http_port": 8888
+        "http_port": 8898
     },
     "client_config": {
         "executable_command": "$APEBENCH_ROOT/test/common/solver.py",

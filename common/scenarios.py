@@ -1,4 +1,6 @@
 import jax
+import apebench  # type: ignore
+import exponax  # type: ignore
 
 import ic_generation as icgen
 
@@ -10,6 +12,7 @@ def get_apebench_scenario(name, **scenario_config):
         return scenario
     except Exception as e:
         print(e)
+        raise e
 
 
 def get_exponax_stepper(name,

@@ -3,6 +3,7 @@ import logging
 
 from typing_extensions import override
 import numpy as np
+import jax.random as jr
 import jax.numpy as jnp
 import torch
 import pdequinox as pdeqx
@@ -18,9 +19,9 @@ from melissa.server.deep_learning.active_sampling.active_sampling_server import 
 
 import train_utils as tutils
 import valid_utils as vutils
+import plot_utils as putils
 from sampler import get_sampler_class_type
 from scenarios import MelissaSpecificScenario
-
 
 logger = logging.getLogger("melissa")
 
@@ -79,16 +80,24 @@ class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServe
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict)
 
+        valid_batch_size = 25
         self.mesh_shape = self.scenario.get_shape()
         out = vutils.load_validation_data(
             validation_dir=self.dl_config.get("validation_directory"),
             seed=self.seed,
-            valid_batch_size=25,
+            valid_batch_size=valid_batch_size,
             nb_time_steps=self.nb_time_steps
         )
         self.valid_dataset, self.valid_dataloader, self.valid_parameters = out
         self.opt_state = None
-
+        self.plot_1d = self.scenario.num_spatial_dims == 1 and self.valid_dataloader is not None
+        if self.plot_1d:
+            self.plot_ids = jr.randint(
+                jr.PRNGKey(0),
+                shape=(2, 5),
+                minval=0,
+                maxval=valid_batch_size
+            )
     @override
     def setup_environment(self):
         # initialize tensorboardLogger with torch
@@ -160,17 +169,34 @@ class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServe
         if self.valid_dataloader is not None and self.rank == 0:
             val_loss = 0.0
             count = 0
-            for _, valid_batch_data in enumerate(self.valid_dataloader):
+            # meshes = {
+            #     "u_prev": [],
+            #     "u_next": [],
+            #     "u_next_hat": []
+            # }
+            for vid, valid_batch_data in enumerate(self.valid_dataloader):
                 u_prev, u_next, sim_ids = valid_batch_data
                 u_prev = jnp.asarray(u_prev)
                 u_next = jnp.asarray(u_next)
-                batch_loss, _ = tutils.loss_fn(self.model, u_prev, u_next)
-
+                batch_loss, _, u_next_hat = tutils.loss_fn(self.model, u_prev, u_next, is_valid=True)
                 val_loss += batch_loss.item()
                 count += 1
             # endfor
             avg_val_loss = val_loss / count if count > 0 else 0.0
             self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
+            # if self.plot_1d:
+            #     img = putils.create_subplot_nx5(
+            #         "Validation",
+            #         meshes,
+            #         domain_extent=self.scenario.domain_extent
+            #     )
+            #     self.tb_logger.writer.add_image(
+            #         "ValidationSubplots",
+            #         img,
+            #         batch_id,
+            #         dataformats="HWC",
+            #     )
+
 
     @override
     def prepare_training_attributes(self):
