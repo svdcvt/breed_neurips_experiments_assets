@@ -1,7 +1,7 @@
 {
     "server_filename": "$APEBENCH_ROOT/test/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_adv_diff_1d_breed2",
+    "output_dir": "STUDY_OUT_adv_diff_1d_breed",
     "study_options": {
         "scenario_config": {
             "scenario_name": "apebench.scenarios.difficulty.AdvectionDiffusion",
@@ -34,15 +34,15 @@
     },
     "sampler_type": "breed",
     "active_sampling_config": {
-        "nn_updates": 200,
-        "non_resampling_threshold": 100,
+        "nn_updates": 500,
+        "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
             "sigma": -1.0,
             "start": 0.5,
             "end": 0.9,
             "breakpoint": 5,
-            "sliding_window_size": 100
+            "sliding_window_size": 50
         }
     },
     "dl_config": {
