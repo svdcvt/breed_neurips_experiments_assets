@@ -35,10 +35,10 @@
             "--exclusive"
         ],
         "job_limit": 21,
-        "server_timeout": 60,
+        "server_timeout": 120,
         "timer_delay": 10,
         "fault_tolerance": false,
-        "verbosity": 5,
+        "verbosity": 2,
         "std_output": false,
         "http_port": 8888
     },

@@ -45,3 +45,8 @@ configs/train/
 ```
 
 _Remember to set `CONFIG_FILE` environment variable on the client side as this helps the client to load scenario with the same configuration from CONFIG_FILE `json` file._
+
+# Run all scripts under specified folder
+```bash
+sbatch jz_semig_all.sh configs/train/
+```

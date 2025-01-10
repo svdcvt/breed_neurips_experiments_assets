@@ -39,7 +39,7 @@
     "dl_config": {
         "nb_batches_update": 100,
         "batch_size": 128, 
-        "per_server_watermark": 800,
+        "per_server_watermark": 1800,
         "buffer_size": 2000,
         "buffer": "Reservoir",
         "convert_log_to_df": true

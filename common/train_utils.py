@@ -27,10 +27,10 @@ def denormalize():
 def get_grads_stats(grads):
 
     grads_flat, _ = jax.tree_util.tree_flatten(eqx.filter(grads, eqx.is_array))
-    flat_grads = [g.reshape(-1) for g in grads_flat]
+    flat_grads = [g.flatten() for g in grads_flat]
     grads_concat = jnp.concatenate(flat_grads)
     total_norm = 0.0
-    for g in grads_flat:
+    for g in flat_grads:
         total_norm += jnp.linalg.norm(g, ord=2) ** 2
     total_norm = jnp.sqrt(total_norm)
     mean = jnp.mean(grads_concat)

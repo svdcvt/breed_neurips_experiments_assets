@@ -4,7 +4,9 @@ from abc import abstractmethod
 from typing_extensions import override
 
 from melissa.server.parameters import (  # type: ignore
-    StaticExperiment
+    StaticExperiment,
+    HaltonSamplerMixIn,
+    RandomUniformSamplerMixIn
 )
 from melissa.server.deep_learning.active_sampling import (  # type: ignore
     DefaultBreeder
@@ -19,14 +21,17 @@ def replace_with_error_handling(original_str, old, new):
     return original_str.replace(old, new)
 
 
-class BaseCustomSamplerMixIn:
+class BaseCustomSamplerMixIn(RandomUniformSamplerMixIn, HaltonSamplerMixIn):
     """Base class for sampling with custom samplers using placeholder strings
     ic_config."""
     def __init__(self, ic_config, is_valid=False):
         self.ic_config = ic_config
         self.is_valid = is_valid
         if self.is_valid:
+            HaltonSamplerMixIn.__init__(self)
             os.makedirs(VALIDATION_DIR, exist_ok=True)
+        else:
+            RandomUniformSamplerMixIn.__init__(self)
 
     @abstractmethod
     def get_placeholders(self):
