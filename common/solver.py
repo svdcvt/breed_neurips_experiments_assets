@@ -100,8 +100,7 @@ def run_solver(store, sampled_ic_config):
         sampled_ic_config=sampled_ic_config,
         **SCENARIO_CONFIG
     )
-    stepper_config = SCENARIO_CONFIG.get("stepper_config", {})
-    stepper = scenario.get_stepper(**stepper_config)
+    stepper = scenario.get_stepper()
     data_shape = scenario.get_shape()
     flattened_mesh_size = np.prod(data_shape)
     input_fn_config = SCENARIO_CONFIG.get("input_fn_config", {})
@@ -116,6 +115,4 @@ def run_solver(store, sampled_ic_config):
 if __name__ == "__main__":
     parser = get_default_parser()
     args = parser.parse_args()
-    # the following can be class-specific default arguments
-    # to be overriden
     run_solver(args.store, args.ic_config)

@@ -1,53 +1,21 @@
 import jax
-import apebench  # type: ignore
-import exponax  # type: ignore
-
+import apebench
 import ic_generation as icgen
 
 
 def get_apebench_scenario(name, **scenario_config):
-    try:
-        scenario_t = eval(f"{name}")
-        scenario = scenario_t(**scenario_config)
-        return scenario
-    except Exception as e:
-        print(e)
-        raise e
-
-
-def get_exponax_stepper(name,
-                        num_spatial_dims,
-                        domain_extent,
-                        num_points,
-                        dt,
-                        **stepper_config):
-    try:
-        stepper_t = eval(f"{name}")
-        stepper = stepper_t(
-            num_spatial_dims,
-            domain_extent,
-            num_points,
-            dt,
-            **stepper_config
-        )
-        return stepper
-    except Exception as e:
-        print(e)
+    return apebench.scenarios.scenario_dict[name](**scenario_config)
 
 
 class MelissaSpecificScenario:
     def __init__(self,
                  scenario_name,
-                 stepper_name=None,
                  sampled_ic_config=None,
                  domain_extent=None,
                  dt=None,
                  network_config="MLP;64;3;relu",
-                 stepper_config={},
-                 input_fn_config={},
                  **scenario_config):
         self.scenario_name = scenario_name
-        self.stepper_name = stepper_name
         self.scenario = get_apebench_scenario(
             self.scenario_name,
             **scenario_config
@@ -79,16 +47,7 @@ class MelissaSpecificScenario:
     def get_optimizer(self):
         return self.scenario.get_optimizer()
 
-    def get_stepper(self, **stepper_config):
-        if self.stepper_name:
-            return get_exponax_stepper(
-                self.stepper_name,
-                self.num_spatial_dims,
-                self.domain_extent,
-                self.num_points,
-                self.dt,
-                **stepper_config
-            )
+    def get_stepper(self):
         return self.scenario.get_ref_stepper()
 
     def get_ic_mesh(self, **input_fn_config):

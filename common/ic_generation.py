@@ -23,10 +23,6 @@ class BaseICMaker(ABC):
         return jnp.load(f"{IC_DIR}/sim{sim_id}.npy")
 
     @abstractmethod
-    def process_input(self, **input_fn_args):
-        pass
-
-    @abstractmethod
     def __call__(self, **input_fn_args):
         raise NotImplementedError
 
@@ -51,19 +47,14 @@ class SineWave(BaseICMaker):
             max_one=config_parts[-1].lower() == "true",
         )
 
-    def process_input(self, **extra_args):
-
-        return ex.make_grid(
+    def __call__(self, **extra_args):
+        grid = ex.make_grid(
             self.num_spatial_dims,
             self.domain_extent,
             self.num_points,
             **extra_args
         )
-
-    def __call__(self, **extra_args):
-
-        input_ = self.process_input(**extra_args)
-        return self.ic_maker(input_)
+        return self.ic_maker(grid)
 
 
 class SupSineWave(SineWave):
@@ -98,10 +89,11 @@ CUSTOM_IC_MAKERS = {
 
 
 def get_ic_maker(num_spatial_dims,
-            domain_extent,
-            num_points,
-            sampled_ic_config,
-            **extra_args):
+                 domain_extent,
+                 num_points,
+                 sampled_ic_config,
+                 **extra_args):
+
     ic_type = sampled_ic_config.split(";")[0]
     ic_maker = CUSTOM_IC_MAKERS[ic_type]
     if isinstance(ic_maker, str):

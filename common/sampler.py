@@ -20,7 +20,8 @@ def replace_with_error_handling(original_str, old, new):
 
 
 class BaseCustomSamplerMixIn:
-    """Base class for sampling with custom samplers."""
+    """Base class for sampling with custom samplers using placeholder strings
+    ic_config."""
     def __init__(self, ic_config, is_valid=False):
         self.ic_config = ic_config
         self.is_valid = is_valid
@@ -32,11 +33,11 @@ class BaseCustomSamplerMixIn:
         raise NotImplementedError
 
     def make_sampled_ic_config(self, sampled_params):
-        sampled_ic_config = self.ic_config
         placeholders = self.get_placeholders()
         assert len(sampled_params) == len(placeholders)
         # for example, ic_config = "sine;<amp>;<phs>;2.0;true;true"
         # will replace the placeholders with actual sampled parameters.
+        sampled_ic_config = self.ic_config
         for plhd, param in zip(placeholders, sampled_params):
             sampled_ic_config = replace_with_error_handling(
                 sampled_ic_config,

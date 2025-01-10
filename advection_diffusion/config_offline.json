@@ -4,18 +4,9 @@
     "output_dir": "VALIDATION_OUT_1d_adv_diff",
     "study_options": {
         "scenario_config": {
-            "scenario_name": "apebench.scenarios.difficulty.AdvectionDiffusion",
-            "stepper_name": "exponax.stepper.AdvectionDiffusion",
+            "scenario_name": "diff_adv_diff",
             "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
-            "network_config": "MLP;64;3;relu",
-            "num_spatial_dims": 1,
-            "domain_extent": 2.0,
-            "num_channels": 1,
-            "dt": 0.1,
-            "stepper_config": {
-                "velocity": 1.0
-            },
-            "input_fn_config": {}
+            "network_config": "MLP;64;3;relu"
         },
         "field_names": [
             "preposition",

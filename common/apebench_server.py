@@ -3,7 +3,6 @@ import logging
 
 from typing_extensions import override
 import numpy as np
-import jax.random as jr
 import jax.numpy as jnp
 import torch
 import pdequinox as pdeqx
@@ -74,7 +73,8 @@ class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
 
 # TODO: Melissa DL interface will change in the future
 # purely from the training perspective. Dataset -> Dataloader -> training
-class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServer):
+class APEBenchServer(CommonInitMixIn,
+                     ExperimentalDeepMelissaActiveSamplingServer):
 
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict)
@@ -89,14 +89,7 @@ class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServe
         )
         self.valid_dataset, self.valid_dataloader, self.valid_parameters = out
         self.opt_state = None
-        self.plot_1d = self.scenario.num_spatial_dims == 1 and self.valid_dataloader is not None
-        if self.plot_1d:
-            self.plot_ids = jr.randint(
-                jr.PRNGKey(0),
-                shape=(2, 5),
-                minval=0,
-                maxval=valid_batch_size
-            )
+
     @override
     def setup_environment(self):
         # initialize tensorboardLogger with torch
@@ -172,7 +165,12 @@ class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServe
                 u_prev, u_next, sim_ids = valid_batch_data
                 u_prev = jnp.asarray(u_prev)
                 u_next = jnp.asarray(u_next)
-                batch_loss, _, u_next_hat = tutils.loss_fn(self.model, u_prev, u_next, is_valid=True)
+                batch_loss, _, _ = tutils.loss_fn(
+                    self.model,
+                    u_prev,
+                    u_next,
+                    is_valid=True
+                )
                 val_loss += batch_loss.item()
                 count += 1
             # endfor
