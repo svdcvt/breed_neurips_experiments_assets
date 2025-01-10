@@ -20,17 +20,13 @@ class MelissaSpecificScenario:
             self.scenario_name,
             **scenario_config
         )
+        self.stepper = self.get_stepper()
         self.network_config = network_config
         self.num_spatial_dims = self.scenario.num_spatial_dims
-        self.domain_extent = domain_extent
-        if (
-            self.domain_extent is None
-            and hasattr(self.scenario, "domain_extent")
-        ):
-            self.domain_extent = self.scenario.domain_extent
+        self.domain_extent = self.stepper.domain_extent
+        self.dt = self.stepper.dt
         self.num_channels = self.scenario.num_channels
         self.num_points = self.scenario.num_points
-        self.dt = dt if dt else self.scenario.dt
         self.sampled_ic_config = sampled_ic_config \
             if sampled_ic_config else scenario_config["ic_config"]
 
