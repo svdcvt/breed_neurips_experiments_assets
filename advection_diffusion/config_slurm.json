@@ -27,7 +27,7 @@
         "nb_time_steps": 100,
         "nb_parameters": 4,
         "l_bounds": [-1.0, 0.0, -1.0, 0.0],
-        "u_bounds": [1.0, "2 * jnp.pi", 1.0, "2 * jnp.pi"],
+        "u_bounds": [1.0, "2 * np.pi", 1.0, "2 * np.pi"],
         "seed": 1234,
         "simulation_timeout": 60,
         "crashes_before_redraw": 1,

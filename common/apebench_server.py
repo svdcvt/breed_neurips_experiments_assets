@@ -19,7 +19,6 @@ from melissa.server.deep_learning.active_sampling.active_sampling_server import 
 
 import train_utils as tutils
 import valid_utils as vutils
-import plot_utils as putils
 from sampler import get_sampler_class_type
 from scenarios import MelissaSpecificScenario
 
@@ -169,12 +168,7 @@ class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServe
         if self.valid_dataloader is not None and self.rank == 0:
             val_loss = 0.0
             count = 0
-            # meshes = {
-            #     "u_prev": [],
-            #     "u_next": [],
-            #     "u_next_hat": []
-            # }
-            for vid, valid_batch_data in enumerate(self.valid_dataloader):
+            for _, valid_batch_data in enumerate(self.valid_dataloader):
                 u_prev, u_next, sim_ids = valid_batch_data
                 u_prev = jnp.asarray(u_prev)
                 u_next = jnp.asarray(u_next)
@@ -184,19 +178,6 @@ class APEBenchServer(CommonInitMixIn, ExperimentalDeepMelissaActiveSamplingServe
             # endfor
             avg_val_loss = val_loss / count if count > 0 else 0.0
             self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
-            # if self.plot_1d:
-            #     img = putils.create_subplot_nx5(
-            #         "Validation",
-            #         meshes,
-            #         domain_extent=self.scenario.domain_extent
-            #     )
-            #     self.tb_logger.writer.add_image(
-            #         "ValidationSubplots",
-            #         img,
-            #         batch_id,
-            #         dataformats="HWC",
-            #     )
-
 
     @override
     def prepare_training_attributes(self):

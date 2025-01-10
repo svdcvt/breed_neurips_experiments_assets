@@ -73,8 +73,12 @@ class SupSineWave(SineWave):
                  num_points,
                  sampled_ic_config):
 
-        super().__init__(num_spatial_dims, domain_extent,
-                         num_points, sampled_ic_config)
+        super().__init__(
+            num_spatial_dims,
+            domain_extent,
+            num_points,
+            sampled_ic_config
+        )
         # ic_config "sine;<amp>;<phs>;true;true"
         config_parts = self.sampled_ic_config.split(";")
         self.ic_maker = ex.ic.SineWaves1d(
