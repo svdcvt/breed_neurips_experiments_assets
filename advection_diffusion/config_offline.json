@@ -45,7 +45,7 @@
     },
     "client_config": {
         "executable_command": "$APEBENCH_ROOT/test/common/solver.py",
-        "command_default_args": ["--store"],
+        "command_default_args": ["--offline"],
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
             "export CONFIG_FILE=config_offline.json",

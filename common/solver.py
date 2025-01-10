@@ -48,7 +48,7 @@ def get_default_parser():
         help="Load the solver with this APEBench IC generator"
     )
     parser.add_argument(
-        "--store",
+        "--offline",
         action="store_true",
         help="Set this when you want to store the trajectories"
     )
@@ -56,7 +56,7 @@ def get_default_parser():
     return parser
 
 
-def online(stepper, ic, flattened_mesh_size):
+def run_online(stepper, ic, flattened_mesh_size):
     comm = MPI.COMM_WORLD
 
     melissa_init(FIELD_PREV_POSITION, flattened_mesh_size, comm)
@@ -81,7 +81,7 @@ def online(stepper, ic, flattened_mesh_size):
     print(f"Total time taken {time.time() - st:.2f} sec.")
 
 
-def offline(stepper, ic):
+def run_offline(stepper, ic):
     rollout_stepper = ex.rollout(
         stepper,
         NB_STEPS,
@@ -95,7 +95,7 @@ def offline(stepper, ic):
     print(f"Total time taken {time.time() - st:.2f} sec.")
 
 
-def run_solver(store, sampled_ic_config):
+def run_solver(offline, sampled_ic_config):
     scenario = MelissaSpecificScenario(
         sampled_ic_config=sampled_ic_config,
         **SCENARIO_CONFIG
@@ -106,13 +106,13 @@ def run_solver(store, sampled_ic_config):
     input_fn_config = SCENARIO_CONFIG.get("input_fn_config", {})
     ic = scenario.get_ic_mesh(**input_fn_config)
 
-    if store:
-        offline(stepper, ic)
+    if offline:
+        run_offline(stepper, ic)
     else:
-        online(stepper, ic, flattened_mesh_size)
+        run_online(stepper, ic, flattened_mesh_size)
 
 
 if __name__ == "__main__":
     parser = get_default_parser()
     args = parser.parse_args()
-    run_solver(args.store, args.ic_config)
+    run_solver(args.offline, args.ic_config)
