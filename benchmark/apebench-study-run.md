@@ -43,4 +43,5 @@ configs/train/
     │       └── config_diff_adv_Conv_34_0_relu_2_5_uniform.json
 # truncated
 ```
-        
+
+_Remember to set `CONFIG_FILE` environment variable on the client side as this helps the client to load scenario with the same configuration from CONFIG_FILE `json` file._

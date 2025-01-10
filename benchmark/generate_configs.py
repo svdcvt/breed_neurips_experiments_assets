@@ -39,7 +39,7 @@ def for_training(train_dir_root, valid_dir_root, input_train_file, ape_config):
             validation_directory=validation_directory
         )
 
-    return output_config_file
+    return os.path.split(output_config_file)[-1]
 
 
 def for_validation(valid_dir_root, input_valid_file, ape_config):
@@ -58,7 +58,7 @@ def for_validation(valid_dir_root, input_valid_file, ape_config):
         offline=True
     )
 
-    return output_config_file
+    return os.path.split(output_config_file)[-1]
 
 
 def run(train_dir_root, valid_dir_root,
