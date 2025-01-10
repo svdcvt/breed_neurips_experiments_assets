@@ -3,14 +3,11 @@ Trains nonlinear emulators for the (linear) 1D advection equation under varying
 difficulty in terms of the `advction_gamma` (=CFL).
 """
 
+
 CONFIGS = [
     {
-        "scenario": "diff_adv",
-        "task": "predict",
-        "net": net,
-        "train": "one",
-        "start_seed": s,
-        "num_seeds": 10,
+        "scenario_name": "diff_adv",
+        "network_config": net,
         "advection_gamma": advection_gamma,
     }
     for s in [0, 10, 20, 30, 40]

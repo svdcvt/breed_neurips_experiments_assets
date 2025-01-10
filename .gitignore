@@ -11,3 +11,4 @@ client_scripts/
 checkpoints/
 __pycache__
 validation/**
+benchmark/**/*.json
