@@ -18,6 +18,7 @@ from melissa.server.deep_learning.active_sampling.active_sampling_server import 
 
 import train_utils as tutils
 import valid_utils as vutils
+import plot_utils as putils
 from sampler import get_sampler_class_type
 from scenarios import MelissaSpecificScenario
 
@@ -90,6 +91,13 @@ class APEBenchServer(CommonInitMixIn,
         self.valid_dataset, self.valid_dataloader, self.valid_parameters = out
         self.opt_state = None
 
+        # 1D u_prev, u_next, and u_next_hat are plotted on the same plot
+        self.plot_1d = self.scenario.num_spatial_dims == 1
+        if self.plot_1d:
+            nrows = 5
+            self.plot_row_ids = np.random.randint(0, valid_batch_size, size=nrows)
+            self.plot_tids = [0, 10, 20, 70, 90]
+
     @override
     def setup_environment(self):
         # initialize tensorboardLogger with torch
@@ -157,15 +165,41 @@ class APEBenchServer(CommonInitMixIn,
 
             self.periodic_resampling(batch_id)
 
+    def validation_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
+        # only the first batch
+        if vid == 0:
+            pids = jnp.asarray(self.plot_row_ids)
+            tids = jnp.asarray(self.plot_tids)
+            meshes = [
+                u_prev[pids][tids],
+                u_next[pids][tids],
+                u_next_hat[pids][tids],
+            ]
+            nrows = len(self.plot_row_ids)
+            ncols = len(self.plot_tids)
+            img = putils.create_subplot_1d(
+                nrows,
+                ncols,
+                self.scenario.domain_extent,
+                sim_ids,
+                tids,
+                meshes
+            )
+            self.tb_logger.writer.add_image(
+                "ValidationMeshPredictions",
+                img,
+                batch_id
+            )
+
     def run_validation(self, batch_id):
         if self.valid_dataloader is not None and self.rank == 0:
             val_loss = 0.0
             count = 0
-            for _, valid_batch_data in enumerate(self.valid_dataloader):
+            for vid, valid_batch_data in enumerate(self.valid_dataloader):
                 u_prev, u_next, sim_ids = valid_batch_data
                 u_prev = jnp.asarray(u_prev)
                 u_next = jnp.asarray(u_next)
-                batch_loss, _, _ = tutils.loss_fn(
+                batch_loss, _, u_next_hat = tutils.loss_fn(
                     self.model,
                     u_prev,
                     u_next,
@@ -173,9 +207,17 @@ class APEBenchServer(CommonInitMixIn,
                 )
                 val_loss += batch_loss.item()
                 count += 1
+                if self.plot_1d and (batch_id + 1) % (2 * self.nb_batches_update) == 0:
+                    self.validation_plot(
+                        batch_id, vid, sim_ids, u_prev, u_next, u_next_hat
+                    )
             # endfor
             avg_val_loss = val_loss / count if count > 0 else 0.0
             self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
+        # endif
+        lr = self.opt_state[0].hyperparams.get("learning_rate")
+        if lr:
+            self.tb_logger.log_scalar("lr", lr, batch_id)
 
     @override
     def prepare_training_attributes(self):

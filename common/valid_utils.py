@@ -76,13 +76,15 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         try:
             u_prev = u_prev.squeeze(axis=0)
             u_next = u_next.squeeze(axis=0)
-        except:
+        except Exception:
             pass
         return u_prev, u_next, sim_ids
 
 
-
-def load_validation_data(validation_dir, seed, valid_batch_size, nb_time_steps):
+def load_validation_data(validation_dir,
+                         seed,
+                         valid_batch_size,
+                         nb_time_steps):
     if validation_dir is None:
         return None, None, None
 
@@ -109,10 +111,9 @@ def load_validation_data(validation_dir, seed, valid_batch_size, nb_time_steps):
         params_path = osp.join(validation_dir, "input_parameters.npy")
         if osp.exists(params_path):
             valid_parameters = np.load(params_path)
-        logger.info(f"Validation set loaded.")
+        logger.info("Validation set loaded.")
     else:
-        logger.warning("Validation set not found. Please set validation_directory in configuration.")
+        logger.warning("Validation set not found. "
+                       "Please set validation_directory in configuration.")
 
     return valid_dataset, valid_dataloader, valid_parameters
-
-
