@@ -13,3 +13,4 @@ __pycache__
 validation/**
 benchmark/**/*.json
 !benchmark/default_*.json
+benchmark/*.zip

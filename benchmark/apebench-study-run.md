@@ -44,9 +44,18 @@ configs/train/
 # truncated
 ```
 
-_Remember to set `CONFIG_FILE` environment variable on the client side as this helps the client to load scenario with the same configuration from CONFIG_FILE `json` file._
+_Remember to set `CONFIG_FILE` environment variable on the client side as this helps the client to load scenario with the same configuration from CONFIG_FILE `json` file. Already done while generating json files in `modify_json.py`_
 
-# Run all scripts under specified folder
+## Run all scripts under specified folder recursively
+The script will traverse all folders recursively from the give path and looks for `*.json` that are not in the output folder of the previous runs. If the job is already submitted it will not be submitted again based on extracted `status 0` string from the `melissa_server_0.log`.
 ```bash
-sbatch jz_semig_all.sh configs/train/
+# ./by_folder.sh <folder-to-search> <submission-script>
+./by_folder.sh configs/train/diff_adv/Conv_34_0_relu/gamma_10_5 ../jz_semig_job.sh
 ```
+
+### Cleanup
+Run this to clear unnecessary folders for all the `STUDY_OUT*/` under a specified directory. This retains the tensorboard logs and the pandas pickle stored in `STUDY_OUT*/tensorboard` folder.
+```bash
+./cleanup.sh <folder-to-clean>
+```
+

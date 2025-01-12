@@ -55,7 +55,7 @@
             "--cpus-per-task=10",
             "--threads-per-core=1",
             "--hint=nomultithread",
-            "--time=00:10:00"
+            "--time=00:15:00"
         ],
         "scheduler_arg_client": [
             "--account=igf@cpu",

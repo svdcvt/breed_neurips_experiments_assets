@@ -2,10 +2,10 @@
 #SBATCH --job-name=apebench-test
 #SBATCH --output=std/%j.out
 #SBATCH --error=std/%j.err
-#SBATCH --time=00:15:00
+#SBATCH --time=00:20:00
 #SBATCH --account=igf@cpu
-#SBATCH --qos=qos_cpu-dev
-##SBATCH --qos=qos_cpu-t3
+##SBATCH --qos=qos_cpu-dev
+#SBATCH --qos=qos_cpu-t3
 #SBATCH --exclusive
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=20 --cpus-per-task=2 --hint=nomultithread
