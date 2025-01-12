@@ -25,11 +25,11 @@
     },
     "sampler_type": "breed",
     "active_sampling_config": {
-        "nn_updates": 200,
+        "nn_updates": 100,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": [0.05, 0.1, 0.05, 0.1],
+            "sigma": [0.1, 0.25, 0.1, 0.25],
             "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,

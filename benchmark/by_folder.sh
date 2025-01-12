@@ -14,7 +14,7 @@ export APEBENCH_ROOT="$WORK/apebench"
 export JOB_SCRIPT="$2"
 
 # Recursively find JSON files, excluding those in paths containing STUDY_OUT_*
-previous_job_id=""
+previous_job_id="$3"
 find "$1" -type f -name "*.json" ! -path "*/STUDY_OUT_*/*" | while read -r json_file; do
     # Get the directory and file name of the current JSON file
     json_dir=$(dirname "$json_file")
