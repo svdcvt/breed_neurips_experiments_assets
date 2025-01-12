@@ -15,12 +15,14 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         self,
         seed,
         data_dir,
+        output_shape,
         solver_time_steps,
         nb_time_steps,
     ):
 
         np.random.seed(seed)
         self.data_dir = data_dir
+        self.output_shape = output_shape
         self.nb_time_steps = nb_time_steps
         # prev offset is introduced if we have different dynamicity
         self.offset = solver_time_steps // nb_time_steps
@@ -43,7 +45,7 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         self.trajectory_size = self.nb_time_steps - self.offset
         self.time_step_ids = np.tile(
             np.arange(0, self.nb_time_steps - self.offset),
-            len(self.file_list)
+            (len(self.file_list), 1)
         )
 
     def __len__(self):
@@ -70,8 +72,8 @@ class TrajectoryDataset(torch.utils.data.Dataset):
 
         # list of np.ndarray -> torch is slow. convert to np.ndarray
         # first and then to torch.
-        u_prev = np.array(prepos_data)
-        u_next = np.array(pos_data)
+        u_prev = np.array(prepos_data)  # .reshape(-1, *self.output_shape)
+        u_next = np.array(pos_data)  # .reshape(-1, *self.output_shape)
         sim_ids = np.array(idx)
         try:
             u_prev = u_prev.squeeze(axis=0)
@@ -84,7 +86,8 @@ class TrajectoryDataset(torch.utils.data.Dataset):
 def load_validation_data(validation_dir,
                          seed,
                          valid_batch_size,
-                         nb_time_steps):
+                         nb_time_steps,
+                         output_shape):
     if validation_dir is None:
         return None, None, None
 
@@ -97,6 +100,7 @@ def load_validation_data(validation_dir,
         valid_dataset = TrajectoryDataset(
             seed=seed,
             data_dir=validation_dir,
+            output_shape=output_shape,
             solver_time_steps=nb_time_steps,
             nb_time_steps=nb_time_steps,
         )

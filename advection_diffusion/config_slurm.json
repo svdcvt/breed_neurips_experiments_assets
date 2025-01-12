@@ -1,7 +1,7 @@
 {
     "server_filename": "$APEBENCH_ROOT/test/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_adv_diff_1d_uniform",
+    "output_dir": "STUDY_OUT_adv_diff_1d_breed",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
@@ -23,13 +23,13 @@
         "crashes_before_redraw": 1,
         "verbosity": 2
     },
-    "sampler_type": "uniform",
+    "sampler_type": "breed",
     "active_sampling_config": {
-        "nn_updates": -1,
+        "nn_updates": 200,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": [0.01, 0.05, 0.01, 0.05],
+            "sigma": [0.05, 0.1, 0.05, 0.1],
             "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,

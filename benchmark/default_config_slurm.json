@@ -25,11 +25,11 @@
     },
     "sampler_type": "breed",
     "active_sampling_config": {
-        "nn_updates": 100,
+        "nn_updates": 200,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": [0.01, 0.05, 0.01, 0.05],
+            "sigma": [0.05, 0.1, 0.05, 0.1],
             "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,
@@ -39,8 +39,8 @@
     "dl_config": {
         "nb_batches_update": 100,
         "batch_size": 128, 
-        "per_server_watermark": 1800,
-        "buffer_size": 2000,
+        "per_server_watermark": 800,
+        "buffer_size": 1000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
     },
@@ -55,7 +55,7 @@
             "--cpus-per-task=10",
             "--threads-per-core=1",
             "--hint=nomultithread",
-            "--time=00:15:00"
+            "--time=00:20:00"
         ],
         "scheduler_arg_client": [
             "--account=igf@cpu",

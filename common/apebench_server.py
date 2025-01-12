@@ -86,7 +86,8 @@ class APEBenchServer(CommonInitMixIn,
             validation_dir=self.dl_config.get("validation_directory"),
             seed=self.seed,
             valid_batch_size=valid_batch_size,
-            nb_time_steps=self.nb_time_steps
+            nb_time_steps=self.nb_time_steps,
+            output_shape=self.scenario.get_shape(),
         )
         self.valid_dataset, self.valid_dataloader, self.valid_parameters = out
         self.opt_state = None
@@ -168,12 +169,13 @@ class APEBenchServer(CommonInitMixIn,
     def validation_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
         # only the first batch
         if vid == 0:
+            sim_ids = sim_ids[self.plot_row_ids].tolist()
             pids = jnp.asarray(self.plot_row_ids)
             tids = jnp.asarray(self.plot_tids)
             meshes = [
-                u_prev[pids][tids],
-                u_next[pids][tids],
-                u_next_hat[pids][tids],
+                u_prev[pids[:, None], tids],
+                u_next[pids[:, None], tids],
+                u_next_hat[pids[:, None], tids]
             ]
             nrows = len(self.plot_row_ids)
             ncols = len(self.plot_tids)
@@ -188,7 +190,8 @@ class APEBenchServer(CommonInitMixIn,
             self.tb_logger.writer.add_image(
                 "ValidationMeshPredictions",
                 img,
-                batch_id
+                batch_id,
+                dataformats="HWC",
             )
 
     def run_validation(self, batch_id):
@@ -197,8 +200,9 @@ class APEBenchServer(CommonInitMixIn,
             count = 0
             for vid, valid_batch_data in enumerate(self.valid_dataloader):
                 u_prev, u_next, sim_ids = valid_batch_data
-                u_prev = jnp.asarray(u_prev)
-                u_next = jnp.asarray(u_next)
+                batch_shape = u_prev.shape
+                u_prev = jnp.asarray(u_prev).reshape(-1, *self.mesh_shape)
+                u_next = jnp.asarray(u_next).reshape(-1, *self.mesh_shape)
                 batch_loss, _, u_next_hat = tutils.loss_fn(
                     self.model,
                     u_prev,
@@ -208,6 +212,9 @@ class APEBenchServer(CommonInitMixIn,
                 val_loss += batch_loss.item()
                 count += 1
                 if self.plot_1d and (batch_id + 1) % (2 * self.nb_batches_update) == 0:
+                    u_prev = u_prev.reshape(*batch_shape)
+                    u_next = u_next.reshape(*batch_shape)
+                    u_next_hat = u_next_hat.reshape(*batch_shape)
                     self.validation_plot(
                         batch_id, vid, sim_ids, u_prev, u_next, u_next_hat
                     )
@@ -215,9 +222,11 @@ class APEBenchServer(CommonInitMixIn,
             avg_val_loss = val_loss / count if count > 0 else 0.0
             self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
         # endif
-        lr = self.opt_state[0].hyperparams.get("learning_rate")
-        if lr:
-            self.tb_logger.log_scalar("lr", lr, batch_id)
+        # requires changes to get_optimizer function to call optax.inject_hyperparams
+        # to make learning rate visible
+        # lr = self.opt_state[0].hyperparams.get("learning_rate")
+        # if lr:
+        #    self.tb_logger.log_scalar("lr", lr, batch_id)
 
     @override
     def prepare_training_attributes(self):
