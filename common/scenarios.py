@@ -32,10 +32,11 @@ class MelissaSpecificScenario:
             self.stepper = get_exponax_stepper(self.scenario, **stepper_config)
         else:
             self.stepper = self.scenario.get_ref_stepper()
+
         self.network_config = network_config
         self.num_spatial_dims = self.scenario.num_spatial_dims
 
-        # set these in stepper_config = {}
+        # modify these in stepper_config = {}
         self.domain_extent = self.stepper.domain_extent
         self.dt = self.stepper.dt
 
@@ -61,10 +62,15 @@ class MelissaSpecificScenario:
         return self.stepper
 
     def get_ic_mesh(self, **input_fn_config):
+
         ic_maker = icgen.get_ic_maker(
-            self.num_spatial_dims,
             self.domain_extent,
             self.num_points,
             self.sampled_ic_config,
         )
+        assert ic_maker.num_spatial_dims == self.num_spatial_dims, \
+            f"This is due to having IC with {ic_maker.num_spatial_dims}D " \
+            f"while the scenario is set with {self.num_spatial_dims}D" \
+            "Adjust this in `['scenario_config']['stepper_config']` option."
+
         return ic_maker(**input_fn_config)
