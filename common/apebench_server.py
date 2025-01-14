@@ -166,7 +166,7 @@ class APEBenchServer(CommonInitMixIn,
 
             self.periodic_resampling(batch_id)
 
-    def validation_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
+    def validation_mesh_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
         # only the first batch
         if vid == 0:
             sim_ids = sim_ids[self.plot_row_ids].tolist()
@@ -194,8 +194,27 @@ class APEBenchServer(CommonInitMixIn,
                 dataformats="HWC",
             )
 
+    def validation_loss_scatter_plot(self, batch_id, loss_by_sim):
+
+        if self.valid_parameters is not None:
+            sids = list(sorted(loss_by_sim.keys()))
+            ls = [
+                loss_by_sim[sim_id]
+                for sim_id in sids
+            ]
+            x = self.valid_parameters[sids, 0]
+            y = self.valid_parameters[sids, 1]
+            img = putils.validation_loss_scatter_plot_by_sim(x, y, ls)
+            self.tb_logger.writer.add_image(
+                "Scatter/ValidationLoss",
+                img,
+                batch_id,
+                dataformats="HWC"
+            )
+
     def run_validation(self, batch_id):
         if self.valid_dataloader is not None and self.rank == 0:
+            loss_by_sim = {}
             val_loss = 0.0
             count = 0
             for vid, valid_batch_data in enumerate(self.valid_dataloader):
@@ -203,30 +222,31 @@ class APEBenchServer(CommonInitMixIn,
                 batch_shape = u_prev.shape
                 u_prev = jnp.asarray(u_prev).reshape(-1, *self.mesh_shape)
                 u_next = jnp.asarray(u_next).reshape(-1, *self.mesh_shape)
-                batch_loss, _, u_next_hat = tutils.loss_fn(
+                batch_loss, loss_per_sample, u_next_hat = tutils.loss_fn(
                     self.model,
                     u_prev,
                     u_next,
                     is_valid=True
                 )
+                loss_by_sim.update({
+                    s.item(): l
+                    for s, l in zip(sim_ids, loss_per_sample)
+                })
                 val_loss += batch_loss.item()
                 count += 1
                 if self.plot_1d and (batch_id + 1) % (2 * self.nb_batches_update) == 0:
                     u_prev = u_prev.reshape(*batch_shape)
                     u_next = u_next.reshape(*batch_shape)
                     u_next_hat = u_next_hat.reshape(*batch_shape)
-                    self.validation_plot(
+                    self.validation_mesh_plot(
                         batch_id, vid, sim_ids, u_prev, u_next, u_next_hat
                     )
             # endfor
             avg_val_loss = val_loss / count if count > 0 else 0.0
             self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
+            
+            # self.validation_loss_scatter_plot(batch_id, loss_by_sim)
         # endif
-        # requires changes to get_optimizer function to call optax.inject_hyperparams
-        # to make learning rate visible
-        # lr = self.opt_state[0].hyperparams.get("learning_rate")
-        # if lr:
-        #    self.tb_logger.log_scalar("lr", lr, batch_id)
 
     @override
     def prepare_training_attributes(self):

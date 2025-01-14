@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import exponax as ex
 
 
+plt.style.use('ggplot')
+
+
 def plot_grid(u, *, make_grid_args={}, plot_args={}):
 
     full_grid = ex.make_grid(
@@ -84,7 +87,6 @@ def scatter_plot(x,
                  show_colorbar=False,
                  colorbar_label=''):
 
-    plt.style.use('ggplot')
     plt.figure(figsize=(10, 8))
 
     if color_data is not None:

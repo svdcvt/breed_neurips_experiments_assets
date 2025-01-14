@@ -13,7 +13,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 500,
+        "parameter_sweep_size": 600,
         "nb_time_steps": 50,
         "nb_parameters": 4,
         "l_bounds": [-1.0, 0.0, -1.0, 0.0],
@@ -25,11 +25,12 @@
     },
     "sampler_type": "breed",
     "active_sampling_config": {
+        "skip_nb_batches": 2000,
         "nn_updates": 100,
-        "non_resampling_threshold": 10,
+        "non_resampling_threshold": 50,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": [0.1, 0.25, 0.1, 0.25],
+            "sigma": [0.5, 1.0, 0.5, 1.0],
             "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,
@@ -55,7 +56,7 @@
             "--cpus-per-task=10",
             "--threads-per-core=1",
             "--hint=nomultithread",
-            "--time=00:20:00"
+            "--time=00:25:00"
         ],
         "scheduler_arg_client": [
             "--account=igf@cpu",
