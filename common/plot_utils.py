@@ -19,6 +19,16 @@ def plot_grid(u, *, make_grid_args={}, plot_args={}):
     plt.plot(full_grid[0], ex.wrap_bc(u)[0], **plot_args)
 
 
+def plot_error(ax, u_next, u_next_hat):
+
+    error = jnp.abs(u_next - u_next_hat)
+    rmse = jnp.sqrt(np.mean((u_next - u_next_hat) ** 2))
+    ax.imshow(error, cmap="Reds", vmin=0, vmax=None)
+    ax.set_title(f"error rmse={rmse:.2e}")
+
+    return ax
+
+
 def mpl_to_tensorboard_image():
 
     buf = io.BytesIO()
@@ -75,6 +85,48 @@ def create_subplot_1d(nrows,
     return mpl_to_tensorboard_image()
 
 
+def create_subplot_2d(nrows,
+                      domain_extent,
+                      sim_ids,
+                      tids,
+                      meshes):
+
+    ncols = 4
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 10), sharex=True, sharey=True)
+    labels = ["u_prev", "u_next", "u_next_hat", "error"]
+    assert len(meshes[0].shape) == 3
+    l, u = jnp.min(jnp.asarray(meshes)), jnp.max(jnp.asarray(meshes))
+    for row in range(nrows):
+        ax = axes[row]
+        for col in range(ncols):
+            ex.viz.plot_state_2d(
+                state=meshes[col][row],
+                domain_extent=domain_extent,
+                ax=ax[col],
+                xlabel="",
+                ylabel="",
+                vlim=(l, u),
+            )
+            ax[col].set_title(labels[col])
+        # endfor
+        row_title = f"sim={sim_ids[row]} tstep={tids[row]}"
+        fig.text(
+            0.05,
+            1 - (row + 0.5) / nrows,
+            row_title,
+            ha='right',
+            va='center',
+            fontsize=12,
+        )
+
+        ax[-1] = plot_error(ax[-1], meshes[1][row], meshes[2][row])
+    # endfor
+    plt.tight_layout()
+    plt.draw()
+
+    return mpl_to_tensorboard_image()
+
+
 def scatter_plot(x,
                  y,
                  color_data=None,
@@ -106,6 +158,7 @@ def scatter_plot(x,
     plt.tight_layout()
 
     return mpl_to_tensorboard_image()
+
 
 def delta_loss_scatter_plot(n, x, y, delta_loss):
     title = f"delta losses for sliding window (last) = {n} simulations"

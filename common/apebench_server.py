@@ -99,6 +99,16 @@ class APEBenchServer(CommonInitMixIn,
             self.plot_row_ids = np.random.randint(0, valid_batch_size, size=nrows)
             self.plot_tids = [0, 10, 20, 70, 90]
 
+        # 2D u_prev, u_next, u_next_hat, and error are plotted on each column
+        # where a row contains a unique time step from different simulations
+        self.plot_2d = self.scenario.num_spatial_dims == 2
+        if self.plot_2d:
+            nrows = 5
+            ncols = 4
+            self.plot_row_ids = np.random.randint(0, valid_batch_size, size=nrows)
+            self.plot_tids = [0, 10, 20, 70, 90]
+            assert len(self.plot_tids) == len(self.plot_row_ids)
+
     @override
     def setup_environment(self):
         # initialize tensorboardLogger with torch
@@ -166,52 +176,6 @@ class APEBenchServer(CommonInitMixIn,
 
             self.periodic_resampling(batch_id)
 
-    def validation_mesh_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
-        # only the first batch
-        if vid == 0:
-            sim_ids = sim_ids[self.plot_row_ids].tolist()
-            pids = jnp.asarray(self.plot_row_ids)
-            tids = jnp.asarray(self.plot_tids)
-            meshes = [
-                u_prev[pids[:, None], tids],
-                u_next[pids[:, None], tids],
-                u_next_hat[pids[:, None], tids]
-            ]
-            nrows = len(self.plot_row_ids)
-            ncols = len(self.plot_tids)
-            img = putils.create_subplot_1d(
-                nrows,
-                ncols,
-                self.scenario.domain_extent,
-                sim_ids,
-                tids,
-                meshes
-            )
-            self.tb_logger.writer.add_image(
-                "ValidationMeshPredictions",
-                img,
-                batch_id,
-                dataformats="HWC",
-            )
-
-    def validation_loss_scatter_plot(self, batch_id, loss_by_sim):
-
-        if self.valid_parameters is not None:
-            sids = list(sorted(loss_by_sim.keys()))
-            ls = [
-                loss_by_sim[sim_id]
-                for sim_id in sids
-            ]
-            x = self.valid_parameters[sids, 0]
-            y = self.valid_parameters[sids, 1]
-            img = putils.validation_loss_scatter_plot_by_sim(x, y, ls)
-            self.tb_logger.writer.add_image(
-                "Scatter/ValidationLoss",
-                img,
-                batch_id,
-                dataformats="HWC"
-            )
-
     def run_validation(self, batch_id):
         if self.valid_dataloader is not None and self.rank == 0:
             loss_by_sim = {}
@@ -234,7 +198,10 @@ class APEBenchServer(CommonInitMixIn,
                 })
                 val_loss += batch_loss.item()
                 count += 1
-                if self.plot_1d and (batch_id + 1) % (2 * self.nb_batches_update) == 0:
+                if (
+                    (self.plot_1d or self.plot_2d)
+                    and (batch_id + 1) % (2 * self.nb_batches_update) == 0
+                ):
                     u_prev = u_prev.reshape(*batch_shape)
                     u_next = u_next.reshape(*batch_shape)
                     u_next_hat = u_next_hat.reshape(*batch_shape)
@@ -269,6 +236,76 @@ class APEBenchServer(CommonInitMixIn,
         u_next = np.array(u_next, copy=True)
 
         return u_prev, u_next, msg.simulation_id, msg.time_step
+
+    def validation_mesh_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
+        # only the first batch
+        if vid == 0:
+            sim_ids = sim_ids[self.plot_row_ids].tolist()
+            pids = jnp.asarray(self.plot_row_ids)
+            tids = jnp.asarray(self.plot_tids)
+            img = None
+            nrows = len(self.plot_row_ids)
+            if self.plot_1d:
+                ncols = len(self.plot_tids)
+                meshes = [
+                    u_prev[pids[:, None], tids],
+                    u_next[pids[:, None], tids],
+                    u_next_hat[pids[:, None], tids]
+                ]
+                img = putils.create_subplot_1d(
+                    nrows,
+                    ncols,
+                    self.scenario.domain_extent,
+                    sim_ids,
+                    tids,
+                    meshes
+                )
+            elif self.plot_2d:
+                # extract one specific time step from a
+                # batch of trajectories
+                def extract(data):
+                    return jnp.array([
+                        data[pid, tid]
+                        for pid in pids
+                        for tid in tids
+                    ])
+                meshes = [
+                    extract(data)
+                    for data in [u_prev, u_next, u_next_hat]
+                ]
+                
+                img = putils.create_subplot_2d(
+                    nrows,
+                    self.scenario.domain_extent,
+                    sim_ids,
+                    tids,
+                    meshes
+                )                
+            if img:
+                self.tb_logger.writer.add_image(
+                    "ValidationMeshPredictions",
+                    img,
+                    batch_id,
+                    dataformats="HWC",
+                )
+
+    def validation_loss_scatter_plot(self, batch_id, loss_by_sim):
+
+        if self.valid_parameters is not None:
+            sids = list(sorted(loss_by_sim.keys()))
+            ls = [
+                loss_by_sim[sim_id]
+                for sim_id in sids
+            ]
+            x = self.valid_parameters[sids, 0]
+            y = self.valid_parameters[sids, 1]
+            img = putils.validation_loss_scatter_plot_by_sim(x, y, ls)
+            self.tb_logger.writer.add_image(
+                "Scatter/ValidationLoss",
+                img,
+                batch_id,
+                dataformats="HWC"
+            )
 
     @override
     def checkpoint(self):
