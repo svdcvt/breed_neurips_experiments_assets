@@ -93,14 +93,38 @@ class SineWaveBreedSampler(SineWaveSamplerMixIn, DefaultBreeder):
         SineWaveSamplerMixIn.__init__(self, ic_config)
 
 
+class SineCosWaves2DSamplerMixIn(BaseCustomSamplerMixIn):
+
+    def __init__(self, ic_config, is_valid=False, **kwargs):
+        BaseCustomSamplerMixIn.__init__(self, ic_config, is_valid)
+
+    def get_placeholders(self):
+        return ["<amp>", "<phs>"]
+
+
+class SineCosWaves2DClassicSampler(SineCosWaves2DSamplerMixIn,
+                                   StaticExperiment):
+    def __init__(self, ic_config, is_valid=False, **kwargs):
+        StaticExperiment.__init__(self, **kwargs)
+        SineCosWaves2DSamplerMixIn.__init__(self, ic_config, is_valid)
+
+
+class SineCosWaves2DBreedSampler(SineCosWaves2DSamplerMixIn, DefaultBreeder):
+    def __init__(self, ic_config, is_valid=False, **kwargs):
+        DefaultBreeder.__init__(self, **kwargs)
+        SineCosWaves2DSamplerMixIn.__init__(self, ic_config)
+
+
 CLASSIC_SAMPLERS = {
     "sine": SineWaveClassicSampler,
-    "sine_sup": SineWaveClassicSampler
+    "sine_sup": SineWaveClassicSampler,
+    "sine_cos_2d": SineCosWaves2DClassicSampler,
 }
 
 BREED_SAMPLERS = {
     "sine": SineWaveBreedSampler,
-    "sine_sup": SineWaveBreedSampler
+    "sine_sup": SineWaveBreedSampler,
+    "sine_cos_2d": SineCosWaves2DBreedSampler,
 }
 
 

@@ -29,13 +29,16 @@ class BaseICMaker(ABC):
 
 class SineWave(BaseICMaker):
     def __init__(self,
-                 num_spatial_dims,
                  domain_extent,
                  num_points,
                  sampled_ic_config):
 
-        super().__init__(num_spatial_dims, domain_extent,
-                         num_points, sampled_ic_config)
+        super().__init__(
+            1,
+            domain_extent,
+            num_points,
+            sampled_ic_config
+        )
         # ic_config "sine;<amp>;<phs>;true;true"
         config_parts = self.sampled_ic_config.split(";")
         self.ic_maker = ex.ic.SineWaves1d(
@@ -59,18 +62,17 @@ class SineWave(BaseICMaker):
 
 class SupSineWave(SineWave):
     def __init__(self,
-                 num_spatial_dims,
                  domain_extent,
                  num_points,
                  sampled_ic_config):
 
         super().__init__(
-            num_spatial_dims,
+            1,
             domain_extent,
             num_points,
             sampled_ic_config
         )
-        # ic_config "sine;<amp>;<phs>;true;true"
+        # ic_config "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;true;true"
         config_parts = self.sampled_ic_config.split(";")
         self.ic_maker = ex.ic.SineWaves1d(
             domain_extent=self.domain_extent,
@@ -82,25 +84,58 @@ class SupSineWave(SineWave):
         )
 
 
+class SineCosWaves2D(BaseICMaker):
+    def __init__(self,
+                 domain_extent,
+                 num_points,
+                 sampled_ic_config):
+
+        super().__init__(
+            2,
+            domain_extent,
+            num_points,
+            sampled_ic_config
+        )
+        # ic_config "sine_cos_2d;<amp>;<phs>;
+        config_parts = self.sampled_ic_config.split(";")
+        amp = float(config_parts[1])
+        phs = float(config_parts[2])
+        self.ic_maker = lambda grid: (
+            amp
+            * jnp.sin(2 * 2 * jnp.pi * grid[0:1] / self.domain_extent + phs)
+            * jnp.cos(3 * 2 * jnp.pi * grid[1:2] / self.domain_extent + phs)
+        )
+
+    def __call__(self, **extra_args):
+        grid = ex.make_grid(
+            self.num_spatial_dims,
+            self.domain_extent,
+            self.num_points,
+            **extra_args
+        )
+        return self.ic_maker(grid)
+
+
 CUSTOM_IC_MAKERS = {
     "sine": SineWave,
-    "sine_sup": SupSineWave
+    "sine_sup": SupSineWave,
+    "sine_cos_2d": SineCosWaves2D
 }
 
 
-def get_ic_maker(num_spatial_dims,
-                 domain_extent,
+def get_ic_maker(domain_extent,
                  num_points,
                  sampled_ic_config,
                  **extra_args):
 
     ic_type = sampled_ic_config.split(";")[0]
     ic_maker = CUSTOM_IC_MAKERS[ic_type]
+
     if isinstance(ic_maker, str):
         print(ic_maker)
         os.exit(1)
+
     return ic_maker(
-        num_spatial_dims,
         domain_extent,
         num_points,
         sampled_ic_config,
