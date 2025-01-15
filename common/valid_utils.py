@@ -18,6 +18,7 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         output_shape,
         solver_time_steps,
         nb_time_steps,
+        only_trajectory=False
     ):
 
         np.random.seed(seed)
@@ -27,6 +28,8 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         # prev offset is introduced if we have different dynamicity
         self.offset = solver_time_steps // nb_time_steps
         logger.info(f"Validation will be set to t -> t + {self.offset}*dt")
+
+        self.only_trajectory = only_trajectory
 
         self.file_list = [
             f for f in os.listdir(data_dir)
@@ -59,6 +62,7 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         if not isinstance(idx, list):
             idx = [idx]
 
+        trajectories = []
         prepos_data = []
         pos_data = []
 
@@ -67,14 +71,21 @@ class TrajectoryDataset(torch.utils.data.Dataset):
             trajectory = np.load(
                 path
             ).astype(np.float32)
-            prepos_data.append(trajectory[self.time_step_ids[i]])
-            pos_data.append(trajectory[self.time_step_ids[i] + self.offset])
+            if self.only_trajectory:
+                trajectories.append(trajectory)
+            else:
+                prepos_data.append(trajectory[self.time_step_ids[i]])
+                pos_data.append(trajectory[self.time_step_ids[i] + self.offset])
+
+        sim_ids = np.array(idx)
+        if self.only_trajectory:
+            trajectories = np.array(trajectories).squeeze(axis=0)
+            return trajectories, sim_ids
 
         # list of np.ndarray -> torch is slow. convert to np.ndarray
         # first and then to torch.
         u_prev = np.array(prepos_data)  # .reshape(-1, *self.output_shape)
         u_next = np.array(pos_data)  # .reshape(-1, *self.output_shape)
-        sim_ids = np.array(idx)
         try:
             u_prev = u_prev.squeeze(axis=0)
             u_next = u_next.squeeze(axis=0)
@@ -87,7 +98,9 @@ def load_validation_data(validation_dir,
                          seed,
                          valid_batch_size,
                          nb_time_steps,
-                         output_shape):
+                         output_shape,
+                         only_trajectory
+                         ):
     if validation_dir is None:
         return None, None, None
 
@@ -103,6 +116,7 @@ def load_validation_data(validation_dir,
             output_shape=output_shape,
             solver_time_steps=nb_time_steps,
             nb_time_steps=nb_time_steps,
+            only_trajectory=only_trajectory
         )
         valid_dataloader = torch.utils.data.DataLoader(
             dataset=valid_dataset,

@@ -2,6 +2,7 @@ import torch
 import jax
 import jax.numpy as jnp
 import equinox as eqx
+import exponax as ex
 
 done = False
 DIM2AXIS = {
@@ -43,16 +44,35 @@ def get_grads_stats(grads):
     }
 
 
-def loss_fn(model, x, y, is_valid=False):
+def loss_fn(model, x, y, domain_extent, is_valid=False):
     y_pred = jax.vmap(model)(x)
-    mse_per_sample = jnp.mean(
-        jnp.square(y_pred - y),
-        axis=DIM2AXIS[len(x[0].shape)]
-    )
+    mse_per_sample = jax.vmap(
+        ex.metrics.nRMSE
+    )(y_pred, y, domain_extent)
     batch_mse = jnp.mean(mse_per_sample)
     if is_valid:
         return batch_mse, mse_per_sample, y_pred
     return batch_mse, mse_per_sample
+
+
+def rollout_loss_fn(model, x, n=5):
+    """x is the batch of trajectories (batch, tsteps, *)"""
+    ics = x[:, 0]
+    y = x[:, 1:]
+    y_pred = jax.vmap(
+        ex.rollout(
+            model,
+            n,
+            include_init=False,
+        )
+    )(ics)
+
+    mse_per_traj = jax.vmap(
+        ex.metrics.nRMSE,
+        in_axes=1
+    )(y_pred, y)
+
+    return jnp.mean(mse_per_traj), mse_per_traj, y_pred
 
 
 @eqx.filter_jit

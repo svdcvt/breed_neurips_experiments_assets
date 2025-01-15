@@ -80,6 +80,7 @@ class APEBenchServer(CommonInitMixIn,
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict)
 
+        self.valid_rollout = self.dl_config("valid_rollout", -1)
         valid_batch_size = 25
         self.mesh_shape = self.scenario.get_shape()
         out = vutils.load_validation_data(
@@ -88,6 +89,7 @@ class APEBenchServer(CommonInitMixIn,
             valid_batch_size=valid_batch_size,
             nb_time_steps=self.nb_time_steps,
             output_shape=self.scenario.get_shape(),
+            only_trajectory=self.valid_rollout > 1
         )
         self.valid_dataset, self.valid_dataloader, self.valid_parameters = out
         self.opt_state = None
@@ -178,42 +180,67 @@ class APEBenchServer(CommonInitMixIn,
 
     def run_validation(self, batch_id):
         if self.valid_dataloader is not None and self.rank == 0:
-            loss_by_sim = {}
-            val_loss = 0.0
-            count = 0
-            for vid, valid_batch_data in enumerate(self.valid_dataloader):
-                u_prev, u_next, sim_ids = valid_batch_data
-                batch_shape = u_prev.shape
-                u_prev = jnp.asarray(u_prev).reshape(-1, *self.mesh_shape)
-                u_next = jnp.asarray(u_next).reshape(-1, *self.mesh_shape)
-                batch_loss, loss_per_sample, u_next_hat = tutils.loss_fn(
-                    self.model,
-                    u_prev,
-                    u_next,
-                    is_valid=True
+            if self.valid_rollout > 1:
+                self.run_validation_rollout(batch_id)
+            else:
+                self.run_validation_regular(batch_id)
+
+    def run_validation_regular(self, batch_id):
+        loss_by_sim = {}
+        val_loss = 0.0
+        count = 0
+        for vid, valid_batch_data in enumerate(self.valid_dataloader):
+            u_prev, u_next, sim_ids = valid_batch_data
+            batch_shape = u_prev.shape
+            u_prev = jnp.asarray(u_prev).reshape(-1, *self.mesh_shape)
+            u_next = jnp.asarray(u_next).reshape(-1, *self.mesh_shape)
+
+            batch_loss, loss_per_sample, u_next_hat = tutils.loss_fn(
+                self.model,
+                u_prev,
+                u_next,
+                is_valid=True
+            )
+
+            loss_by_sim.update({
+                s.item(): l
+                for s, l in zip(sim_ids, loss_per_sample)
+            })
+            val_loss += batch_loss.item()
+            count += 1
+            if (
+                (self.plot_1d or self.plot_2d)
+                and (batch_id + 1) % (2 * self.nb_batches_update) == 0
+            ):
+                u_prev = u_prev.reshape(*batch_shape)
+                u_next = u_next.reshape(*batch_shape)
+                u_next_hat = u_next_hat.reshape(*batch_shape)
+                self.validation_mesh_plot(
+                    batch_id, vid, sim_ids, u_prev, u_next, u_next_hat
                 )
-                loss_by_sim.update({
-                    s.item(): l
-                    for s, l in zip(sim_ids, loss_per_sample)
-                })
-                val_loss += batch_loss.item()
-                count += 1
-                if (
-                    (self.plot_1d or self.plot_2d)
-                    and (batch_id + 1) % (2 * self.nb_batches_update) == 0
-                ):
-                    u_prev = u_prev.reshape(*batch_shape)
-                    u_next = u_next.reshape(*batch_shape)
-                    u_next_hat = u_next_hat.reshape(*batch_shape)
-                    self.validation_mesh_plot(
-                        batch_id, vid, sim_ids, u_prev, u_next, u_next_hat
-                    )
-            # endfor
+        # endfor
+        avg_val_loss = val_loss / count if count > 0 else 0.0
+        self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)        
+        # self.validation_loss_scatter_plot(batch_id, loss_by_sim)
+
+    def run_validation_rollout(self, batch_id):
+        val_loss = 0.0
+        count = 0
+        for _, valid_batch_data in enumerate(self.valid_dataloader):
+            traj, _ = valid_batch_data
+            batch_loss, _, _ = tutils.rollout_loss_fn(
+                self.model,
+                traj,
+                self.valid_rollout
+            )
+            val_loss += batch_loss.item()
+            count += 1
             avg_val_loss = val_loss / count if count > 0 else 0.0
-            self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
-            
-            # self.validation_loss_scatter_plot(batch_id, loss_by_sim)
-        # endif
+            self.tb_logger.log_scalar(
+                f"Loss/valid_rollout (n={self.valid_rollout})",
+                avg_val_loss,
+                batch_id
+            )
 
     @override
     def prepare_training_attributes(self):
@@ -261,7 +288,7 @@ class APEBenchServer(CommonInitMixIn,
                     meshes
                 )
             elif self.plot_2d:
-                # extract one specific time step from a
+                # extract specific time steps from a
                 # batch of trajectories
                 def extract(data):
                     return jnp.array([
