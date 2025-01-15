@@ -80,7 +80,7 @@ class APEBenchServer(CommonInitMixIn,
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict)
 
-        self.valid_rollout = self.dl_config("valid_rollout", -1)
+        self.valid_rollout = self.dl_config.get("valid_rollout", -1)
         valid_batch_size = 25
         self.mesh_shape = self.scenario.get_shape()
         out = vutils.load_validation_data(
@@ -228,6 +228,7 @@ class APEBenchServer(CommonInitMixIn,
         count = 0
         for _, valid_batch_data in enumerate(self.valid_dataloader):
             traj, _ = valid_batch_data
+            traj = jnp.asarray(traj)
             batch_loss, _, _ = tutils.rollout_loss_fn(
                 self.model,
                 traj,

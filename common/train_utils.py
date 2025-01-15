@@ -44,11 +44,11 @@ def get_grads_stats(grads):
     }
 
 
-def loss_fn(model, x, y, domain_extent, is_valid=False):
+def loss_fn(model, x, y, is_valid=False):
     y_pred = jax.vmap(model)(x)
     mse_per_sample = jax.vmap(
         ex.metrics.nRMSE
-    )(y_pred, y, domain_extent)
+    )(y_pred, y)
     batch_mse = jnp.mean(mse_per_sample)
     if is_valid:
         return batch_mse, mse_per_sample, y_pred
@@ -56,9 +56,9 @@ def loss_fn(model, x, y, domain_extent, is_valid=False):
 
 
 def rollout_loss_fn(model, x, n=5):
-    """x is the batch of trajectories (batch, tsteps, *)"""
+    """x is the batch of trajectories (batch/sim, tsteps, channel, *dims)"""
     ics = x[:, 0]
-    y = x[:, 1:]
+    y = x[:, 1:n+1]
     y_pred = jax.vmap(
         ex.rollout(
             model,

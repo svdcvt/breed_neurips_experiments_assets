@@ -67,7 +67,6 @@ class SupSineWave(SineWave):
                  sampled_ic_config):
 
         super().__init__(
-            1,
             domain_extent,
             num_points,
             sampled_ic_config
