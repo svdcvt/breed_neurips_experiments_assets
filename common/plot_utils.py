@@ -4,6 +4,7 @@ import numpy as np
 import jax.numpy as jnp
 from PIL import Image
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import exponax as ex
 
 
@@ -94,7 +95,7 @@ def create_subplot_2d(nrows,
     ncols = 4
     fig, axes = plt.subplots(nrows, ncols, figsize=(12, 10), sharex=True, sharey=True)
     labels = ["u_prev", "u_next", "u_next_hat", "error"]
-    assert len(meshes[0].shape) == 3
+    assert len(meshes[0].shape) == 4, f"GOT shape of meshes[0] = {meshes[0].shape}"
     l, u = jnp.min(jnp.asarray(meshes)), jnp.max(jnp.asarray(meshes))
     for row in range(nrows):
         ax = axes[row]
@@ -103,8 +104,6 @@ def create_subplot_2d(nrows,
                 state=meshes[col][row],
                 domain_extent=domain_extent,
                 ax=ax[col],
-                xlabel="",
-                ylabel="",
                 vlim=(l, u),
             )
             ax[col].set_title(labels[col])
@@ -174,3 +173,13 @@ def validation_loss_scatter_plot_by_sim(x, y, loss):
     title = f"validation loss for {len(loss)} simulations"
     return scatter_plot(x, y, color_data=loss, cmap='GnBu', title=title, show_colorbar=True, colorbar_label='loss')
 
+
+def plot_seen_count_histogram(seen_counts):
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    plt.hist(np.array(seen_counts), edgecolor='k')
+    plt.xlabel("Number of seen counts")
+    plt.ylabel("Frequency")
+    plt.tight_layout()
+
+    return mpl_to_tensorboard_image()

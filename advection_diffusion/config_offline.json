@@ -36,7 +36,7 @@
             "--exclusive"
         ],
         "job_limit": 21,
-        "server_timeout": 120,
+        "server_timeout": 600,
         "timer_delay": 10,
         "fault_tolerance": false,
         "verbosity": 2,

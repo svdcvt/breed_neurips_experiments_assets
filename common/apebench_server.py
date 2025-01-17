@@ -83,12 +83,12 @@ class APEBenchServer(CommonInitMixIn,
         CommonInitMixIn.__init__(self, config_dict)
 
         self.valid_rollout = self.dl_config.get("valid_rollout", -1)
-        valid_batch_size = 25
+        self.valid_batch_size = self.dl_config.get("valid_batch_size", 25)
         self.mesh_shape = self.scenario.get_shape()
         out = vutils.load_validation_data(
             validation_dir=self.dl_config.get("validation_directory"),
             seed=self.seed,
-            valid_batch_size=valid_batch_size,
+            valid_batch_size=self.valid_batch_size,
             nb_time_steps=self.nb_time_steps,
             output_shape=self.scenario.get_shape(),
         )
@@ -99,17 +99,18 @@ class APEBenchServer(CommonInitMixIn,
             self.valid_dataset_for_rollout = vutils.load_validation_data(
                 validation_dir=self.dl_config.get("validation_directory"),
                 seed=self.seed,
-                valid_batch_size=valid_batch_size,
+                valid_batch_size=self.valid_batch_size,
                 nb_time_steps=self.nb_time_steps,
                 output_shape=self.scenario.get_shape(),
-                only_trajectories_dataset=True
+                only_trajectories_dataset=True,
+                rollout_size=self.valid_rollout
             )
 
         # 1D u_prev, u_next, and u_next_hat are plotted on the same plot
         self.plot_1d = self.scenario.num_spatial_dims == 1
         if self.plot_1d:
             nrows = 5
-            self.plot_row_ids = np.random.randint(0, valid_batch_size, size=nrows)
+            self.plot_row_ids = np.random.randint(0,  self.valid_batch_size, size=nrows)
             self.plot_tids = [0, 10, 20, 70, 90]
 
         # 2D u_prev, u_next, u_next_hat, and error are plotted on each column
@@ -118,7 +119,7 @@ class APEBenchServer(CommonInitMixIn,
         if self.plot_2d:
             nrows = 5
             ncols = 4
-            self.plot_row_ids = np.random.randint(0, valid_batch_size, size=nrows)
+            self.plot_row_ids = np.random.randint(0, self.valid_batch_size, size=nrows)
             self.plot_tids = [0, 10, 20, 70, 90]
             assert len(self.plot_tids) == len(self.plot_row_ids)
 
@@ -148,6 +149,8 @@ class APEBenchServer(CommonInitMixIn,
 
             if (batch_id + 1) % self.nb_batches_update == 0:
                 self.run_validation(batch_id)
+        # endfor
+        putils.plot_seen_count_histogram(self.buffer.seen_ctr.elements())
 
     def training_step(self, batch, batch_id):
         u_prev, u_next, sim_ids_list, time_step_list = batch
@@ -257,8 +260,8 @@ class APEBenchServer(CommonInitMixIn,
             f"Loss/valid_rollout (n={self.valid_rollout}) nRMSE",
             mean_loss.item(),
             batch_id
-        )
-
+        ) 
+        
     @override
     def prepare_training_attributes(self):
 

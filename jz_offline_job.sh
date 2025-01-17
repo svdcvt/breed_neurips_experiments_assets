@@ -3,10 +3,10 @@
 #SBATCH --job-name=validation-generation
 #SBATCH --output=std/%j.validation.out
 #SBATCH --error=std/%j.validation.err
-#SBATCH --time=00:15:00
+#SBATCH --time=00:25:00
 #SBATCH --account=igf@cpu
 #SBATCH --qos=qos_cpu-dev
-#SBATCH --nodes=1 --ntasks=1 --cpus-per-task=2 --exclusive
+#SBATCH --nodes=1 --ntasks=1 --cpus-per-task=4 --exclusive
 #SBATCH hetjob
 #SBATCH --nodes=1 --ntasks-per-node=20 --cpus-per-task=1
 

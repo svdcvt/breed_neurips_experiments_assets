@@ -1,12 +1,12 @@
 {
     "server_filename": "$APEBENCH_ROOT/test/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_adv_diff_2d_breed",
+    "output_dir": "STUDY_OUT_adv_diff_2d_uniform",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
             "scenario_name": "diff_adv_diff",
-            "ic_config": "sine_cos_2d;<amp>;<phs>;",
+            "ic_config": "sine_cos_2d;<amp>;<phs>",
             "network_config": "Conv;34;6;relu",
             "num_spatial_dims": 2,
             "num_points": 160
@@ -15,7 +15,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 500,
+        "parameter_sweep_size": 100,
         "nb_time_steps": 100,
         "nb_parameters": 2,
         "l_bounds": [-1.0, 0.0],
@@ -25,14 +25,14 @@
         "crashes_before_redraw": 1,
         "verbosity": 2
     },
-    "sampler_type": "breed",
+    "sampler_type": "uniform",
     "active_sampling_config": {
-        "skip_nb_batches": 2000,
-        "nn_updates": 200,
+        "skip_nb_batches": 500,
+        "nn_updates": -1,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": [0.5, 1.0, 0.5, 1.0],
+            "sigma": [0.5, 1.0],
             "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,
@@ -41,7 +41,8 @@
     },
     "dl_config": {
         "validation_directory": "$APEBENCH_ROOT/test/advection_diffusion_2d/VALIDATION_OUT_2d_adv_diff/trajectories",
-        "nb_batches_update": 100,
+        "valid_batch_size": 10,
+        "nb_batches_update": 50,
         "batch_size": 128, 
         "per_server_watermark": 800,
         "buffer_size": 2000,
@@ -53,6 +54,7 @@
         "scheduler_arg_server": [
             "--qos=qos_gpu-dev",
             "--account=igf@v100",
+            "-C v100-32g",
             "--nodes=1",
             "--ntasks=1",
             "--gres=gpu:1",
@@ -88,7 +90,8 @@
     "server_config": {
         "preprocessing_commands": [
             "module load zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda",
-            "module load nccl/2.21.5-1-cuda"
+            "module load nccl/2.21.5-1-cuda",
+            "nvidia-smi"
         ]
     }
 }

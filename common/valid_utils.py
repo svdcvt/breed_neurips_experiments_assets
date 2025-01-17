@@ -18,7 +18,8 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         output_shape,
         solver_time_steps,
         nb_time_steps,
-        only_trajectory=False
+        only_trajectory=False,
+        rollout_size=-1
     ):
 
         np.random.seed(seed)
@@ -30,6 +31,7 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         logger.info(f"Validation will be set to t -> t + {self.offset}*dt")
 
         self.only_trajectory = only_trajectory
+        self.rollout_size = rollout_size
 
         self.file_list = [
             f for f in os.listdir(data_dir)
@@ -69,10 +71,11 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         for i in idx:  # sim{i}.npy
             path = osp.join(self.data_dir, self.file_list[i])
             trajectory = np.load(
-                path
+                path,
+                mmap_mode="r"  # do not load everything at once
             ).astype(np.float32)
             if self.only_trajectory:
-                trajectories.append(trajectory)
+                trajectories.append(trajectory[:self.rollout_size + 1])
             else:
                 prepos_data.append(trajectory[self.time_step_ids[i]])
                 pos_data.append(trajectory[self.time_step_ids[i] + self.offset])
@@ -100,7 +103,8 @@ def load_validation_data(validation_dir,
                          valid_batch_size,
                          nb_time_steps,
                          output_shape,
-                         only_trajectories_dataset=False
+                         only_trajectories_dataset=False,
+                         rollout_size=-1
                          ):
     if validation_dir is None:
         return None, None, None
@@ -118,7 +122,8 @@ def load_validation_data(validation_dir,
                 output_shape=output_shape,
                 solver_time_steps=nb_time_steps,
                 nb_time_steps=nb_time_steps,
-                only_trajectory=True
+                only_trajectory=True,
+                rollout_size=rollout_size
             )
  
         valid_dataset = TrajectoryDataset(

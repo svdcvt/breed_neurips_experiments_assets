@@ -5,7 +5,7 @@
     "study_options": {
         "scenario_config": {
             "scenario_name": "diff_adv_diff",
-            "ic_config": "sine_cos_2d;<amp>;<phs>;",
+            "ic_config": "sine_cos_2d;<amp>;<phs>",
             "network_config": "MLP;64;3;relu",
             "num_spatial_dims": 2,
             "num_points": 160
@@ -29,7 +29,7 @@
         "scheduler_arg_server": [
             "--het-group=0",
             "--ntasks=1",
-            "--time=00:30:00"
+            "--time=00:20:00"
         ],
         "scheduler_arg_client": [
             "--het-group=1",
@@ -38,7 +38,7 @@
             "--exclusive"
         ],
         "job_limit": 21,
-        "server_timeout": 120,
+        "server_timeout": 600,
         "timer_delay": 10,
         "fault_tolerance": false,
         "verbosity": 2,
