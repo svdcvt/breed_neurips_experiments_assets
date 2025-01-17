@@ -79,18 +79,19 @@ class TrajectoryDataset(torch.utils.data.Dataset):
 
         sim_ids = np.array(idx)
         if self.only_trajectory:
-            trajectories = np.array(trajectories).squeeze(axis=0)
+            trajectories = np.array(trajectories)
+            if trajectories.shape[0] == 1:
+                trajectories = trajectories.squeeze(axis=0)
             return trajectories, sim_ids
 
         # list of np.ndarray -> torch is slow. convert to np.ndarray
         # first and then to torch.
         u_prev = np.array(prepos_data)  # .reshape(-1, *self.output_shape)
         u_next = np.array(pos_data)  # .reshape(-1, *self.output_shape)
-        try:
+        if u_prev.shape[0] == 1:
             u_prev = u_prev.squeeze(axis=0)
             u_next = u_next.squeeze(axis=0)
-        except Exception:
-            pass
+
         return u_prev, u_next, sim_ids
 
 
@@ -99,7 +100,7 @@ def load_validation_data(validation_dir,
                          valid_batch_size,
                          nb_time_steps,
                          output_shape,
-                         only_trajectory
+                         only_trajectories_dataset=False
                          ):
     if validation_dir is None:
         return None, None, None
@@ -110,13 +111,23 @@ def load_validation_data(validation_dir,
     validation_dir = osp.expandvars(validation_dir)
 
     if osp.exists(validation_dir):
+        if only_trajectories_dataset:
+            return TrajectoryDataset(
+                seed=seed,
+                data_dir=validation_dir,
+                output_shape=output_shape,
+                solver_time_steps=nb_time_steps,
+                nb_time_steps=nb_time_steps,
+                only_trajectory=True
+            )
+ 
         valid_dataset = TrajectoryDataset(
             seed=seed,
             data_dir=validation_dir,
             output_shape=output_shape,
             solver_time_steps=nb_time_steps,
             nb_time_steps=nb_time_steps,
-            only_trajectory=only_trajectory
+            only_trajectory=False
         )
         valid_dataloader = torch.utils.data.DataLoader(
             dataset=valid_dataset,

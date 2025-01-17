@@ -47,7 +47,7 @@ def get_grads_stats(grads):
 def loss_fn(model, x, y, is_valid=False):
     y_pred = jax.vmap(model)(x)
     mse_per_sample = jax.vmap(
-        ex.metrics.nRMSE
+        ex.metrics.MSE
     )(y_pred, y)
     batch_mse = jnp.mean(mse_per_sample)
     if is_valid:

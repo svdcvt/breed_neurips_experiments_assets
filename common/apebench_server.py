@@ -23,6 +23,8 @@ from sampler import get_sampler_class_type
 from scenarios import MelissaSpecificScenario
 
 logger = logging.getLogger("melissa")
+logging.getLogger("jax").setLevel(logging.ERROR)
+logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
 
 class CommonInitMixIn:
@@ -89,10 +91,19 @@ class APEBenchServer(CommonInitMixIn,
             valid_batch_size=valid_batch_size,
             nb_time_steps=self.nb_time_steps,
             output_shape=self.scenario.get_shape(),
-            only_trajectory=self.valid_rollout > 1
         )
         self.valid_dataset, self.valid_dataloader, self.valid_parameters = out
         self.opt_state = None
+
+        if self.valid_rollout > 1:
+            self.valid_dataset_for_rollout = vutils.load_validation_data(
+                validation_dir=self.dl_config.get("validation_directory"),
+                seed=self.seed,
+                valid_batch_size=valid_batch_size,
+                nb_time_steps=self.nb_time_steps,
+                output_shape=self.scenario.get_shape(),
+                only_trajectories_dataset=True
+            )
 
         # 1D u_prev, u_next, and u_next_hat are plotted on the same plot
         self.plot_1d = self.scenario.num_spatial_dims == 1
@@ -180,12 +191,16 @@ class APEBenchServer(CommonInitMixIn,
 
     def run_validation(self, batch_id):
         if self.valid_dataloader is not None and self.rank == 0:
+            self.run_validation_regular(batch_id)
+
             if self.valid_rollout > 1:
                 self.run_validation_rollout(batch_id)
-            else:
-                self.run_validation_regular(batch_id)
 
     def run_validation_regular(self, batch_id):
+        """This loss is across all trajectories and their time steps.
+        t[i] -> t[i + 1] 
+        """
+
         loss_by_sim = {}
         val_loss = 0.0
         count = 0
@@ -224,24 +239,25 @@ class APEBenchServer(CommonInitMixIn,
         # self.validation_loss_scatter_plot(batch_id, loss_by_sim)
 
     def run_validation_rollout(self, batch_id):
-        val_loss = 0.0
-        count = 0
-        for _, valid_batch_data in enumerate(self.valid_dataloader):
-            traj, _ = valid_batch_data
-            traj = jnp.asarray(traj)
-            batch_loss, _, _ = tutils.rollout_loss_fn(
-                self.model,
-                traj,
-                self.valid_rollout
-            )
-            val_loss += batch_loss.item()
-            count += 1
-            avg_val_loss = val_loss / count if count > 0 else 0.0
-            self.tb_logger.log_scalar(
-                f"Loss/valid_rollout (n={self.valid_rollout})",
-                avg_val_loss,
-                batch_id
-            )
+        """This loss is across all trajectories rolled out from their respective ICs.
+        t[0] -> t[1] -> ... t[rollout]
+        """
+
+        total = len(self.valid_dataset_for_rollout)
+        all_trajectories, _ = self.valid_dataset_for_rollout[[i
+            for i in range(total)
+        ]]
+        all_trajectories = jnp.asarray(all_trajectories)
+        mean_loss, _, _ = tutils.rollout_loss_fn(
+            self.model,
+            all_trajectories,
+            self.valid_rollout
+        )
+        self.tb_logger.log_scalar(
+            f"Loss/valid_rollout (n={self.valid_rollout}) nRMSE",
+            mean_loss.item(),
+            batch_id
+        )
 
     @override
     def prepare_training_attributes(self):
@@ -309,7 +325,7 @@ class APEBenchServer(CommonInitMixIn,
                     tids,
                     meshes
                 )                
-            if img:
+            if img is not None:
                 self.tb_logger.writer.add_image(
                     "ValidationMeshPredictions",
                     img,
