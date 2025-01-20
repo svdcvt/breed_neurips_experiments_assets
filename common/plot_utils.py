@@ -4,11 +4,12 @@ import numpy as np
 import jax.numpy as jnp
 from PIL import Image
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from matplotlib.ticker import MaxNLocator
 import exponax as ex
 
 
-plt.style.use('ggplot')
+# plt.style.use('ggplot')
 
 
 def plot_grid(u, *, make_grid_args={}, plot_args={}):
@@ -175,6 +176,7 @@ def validation_loss_scatter_plot_by_sim(x, y, loss):
 
 
 def plot_seen_count_histogram(seen_counts):
+    plt.figure()
     ax = plt.gca()
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     plt.hist(np.array(seen_counts), edgecolor='k')
@@ -183,3 +185,40 @@ def plot_seen_count_histogram(seen_counts):
     plt.tight_layout()
 
     return mpl_to_tensorboard_image()
+
+
+class DynamicHistogram():
+    def __init__(self, title='Histogram', cmap='magma', bins=50, size=(8,5), show_last=0):
+        self.cmap = plt.get_cmap(cmap)
+        self.bins = bins
+        self.fig, self.axes = plt.subplots(1, 1, figsize=size)
+        self.axes.set_title(title)
+        self.axes.set_xlabel('Value')
+        self.axes.set_ylabel('Log-Density')
+        self.first = 0
+        self.current = 0
+        self.show_last = show_last
+        self.cbar = self.fig.colorbar(
+            mpl.cm.ScalarMappable(cmap=self.cmap),
+            ax=self.axes, orientation='vertical', label='Iteration')
+
+    def add_histogram_step(self, data):
+        # 1. update counter
+        self.current += 1
+        # 2. add histogram
+        self.axes.hist(data, bins=self.bins, histtype='stepfilled', log=True)
+        # 3. update colors
+        for i, color in enumerate(map(self.cmap, np.linspace(0, 1, self.current - self.first))):
+            self.axes.patches[i].set_facecolor(color)
+        # 4. update xlim
+        xmin, xmax = min(data), max(data)
+        if (self.axes.get_xlim()[0] / xmin) <= 0.5 or xmin < self.axes.get_xlim()[0]:
+            self.axes.set_xlim(xmin, None)
+        if (xmax / self.axes.get_xlim()[1]) <= 0.5 or xmax > self.axes.get_xlim()[1]:
+            self.axes.set_xlim(None, xmax)
+        # 5. when theres enough artists - remove first
+        if self.show_last != 0 and self.current > self.show_last:
+            self.axes.patches[0].remove()
+            self.first = self.current - self.show_last
+        # 6. update colorbar limit
+        self.cbar.mappable.set_norm(mpl.colors.Normalize(self.first, self.current))
