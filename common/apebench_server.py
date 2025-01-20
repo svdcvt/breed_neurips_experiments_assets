@@ -15,6 +15,8 @@ from melissa.server.deep_learning import active_sampling  # type: ignore
 from melissa.server.deep_learning.active_sampling.active_sampling_server import (  # type: ignore
     ExperimentalDeepMelissaActiveSamplingServer
 )
+# when we merge
+# from melissa.utility.plots import DynamicHistogram
 
 import train_utils as tutils
 import valid_utils as vutils
@@ -122,6 +124,17 @@ class APEBenchServer(CommonInitMixIn,
             self.plot_row_ids = np.random.randint(0, self.valid_batch_size, size=nrows)
             self.plot_tids = [0, 10, 20, 70, 90]
             assert len(self.plot_tids) == len(self.plot_row_ids)
+        # we can make this optional
+        self.plot_loss_distributions = dict(
+            train=putils.DynamicHistogram(title='Batch loss Distribution', cmap='Blues', show_last=50),
+            validation=putils.DynamicHistogram(title='Validation loss Distribution', show_last=50))
+        if self.valid_rollout > 1:
+            self.plot_loss_distributions.update(
+                valid_rollout=putils.DynamicHistogram(
+                    title='Validation rollout loss Distribution',
+                    show_last=50
+                )
+            )
 
     @override
     def setup_environment(self):
@@ -150,7 +163,13 @@ class APEBenchServer(CommonInitMixIn,
             if (batch_id + 1) % self.nb_batches_update == 0:
                 self.run_validation(batch_id)
         # endfor
-        putils.plot_seen_count_histogram(self.buffer.seen_ctr.elements())
+        img = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
+        if img is not None:
+            self.tb_logger.writer.add_image(
+                "SeenCountsHistogram",
+                img,
+                dataformats="HWC",
+            )
 
     def training_step(self, batch, batch_id):
         u_prev, u_next, sim_ids_list, time_step_list = batch
@@ -173,6 +192,15 @@ class APEBenchServer(CommonInitMixIn,
             self.tb_logger.log_scalar(f"Gradients/{key}", val, batch_id)
         logger.info(f"BATCH={batch_id} loss={batch_loss:.2e}")
         self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_id)
+        self.plot_loss_distributions['train'].add_histogram_step(
+            np.asarray(loss_per_sample)
+        )
+        self.tb_logger.writer.add_figure(
+            "TrainLossHistogram",
+            self.plot_loss_distributions['train'].fig,
+            batch_id,
+            close=False
+        )
 
         if self.is_breed_study:
             loss_per_sample = torch.tensor(loss_per_sample.tolist())
@@ -189,7 +217,16 @@ class APEBenchServer(CommonInitMixIn,
                     batch_loss,
                     batch_loss_relative,
                 )
-
+            fits, _ = active_sampling.get_fitnesses()
+            fits = np.array(fits)
+            fits -= fits.min()
+            fits /= fits.sum()
+            self.tb_logger.log_scalar(
+                'ESS', (fits.sum() ** 2) / (fits ** 2).sum(), batch_id
+            )
+            self.tb_logger.log_scalar(
+                'R_i', self._parameter_sampler.R_i, batch_id
+            )
             self.periodic_resampling(batch_id)
 
     def run_validation(self, batch_id):
@@ -205,6 +242,7 @@ class APEBenchServer(CommonInitMixIn,
         """
 
         loss_by_sim = {}
+        losses_per_sample = []
         val_loss = 0.0
         count = 0
         for vid, valid_batch_data in enumerate(self.valid_dataloader):
@@ -224,6 +262,9 @@ class APEBenchServer(CommonInitMixIn,
                 s.item(): l
                 for s, l in zip(sim_ids, loss_per_sample)
             })
+            losses_per_sample.append(
+                loss_per_sample.ravel()
+            )
             val_loss += batch_loss.item()
             count += 1
             if (
@@ -238,7 +279,14 @@ class APEBenchServer(CommonInitMixIn,
                 )
         # endfor
         avg_val_loss = val_loss / count if count > 0 else 0.0
-        self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)        
+        self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
+        self.plot_loss_distributions['validation'].add_histogram_step(np.hstack(losses_per_sample))
+        self.tb_logger.writer.add_figure(
+            "ValidationLossHistogram",
+            self.plot_loss_distributions['validation'].fig,
+            batch_id,
+            close=False
+        )
         # self.validation_loss_scatter_plot(batch_id, loss_by_sim)
 
     def run_validation_rollout(self, batch_id):
@@ -251,7 +299,7 @@ class APEBenchServer(CommonInitMixIn,
             for i in range(total)
         ]]
         all_trajectories = jnp.asarray(all_trajectories)
-        mean_loss, _, _ = tutils.rollout_loss_fn(
+        mean_loss, per_traj_loss, _ = tutils.rollout_loss_fn(
             self.model,
             all_trajectories,
             self.valid_rollout
@@ -260,7 +308,16 @@ class APEBenchServer(CommonInitMixIn,
             f"Loss/valid_rollout (n={self.valid_rollout}) nRMSE",
             mean_loss.item(),
             batch_id
-        ) 
+        )
+        self.plot_loss_distributions['valid_rollout'].add_histogram_step(
+            np.asarray(per_traj_loss)
+        )
+        self.tb_logger.writer.add_figure(
+            "ValidationRolloutLossHistogram",
+            self.plot_loss_distributions['valid_rollout'].fig,
+            batch_id,
+            close=False
+        )
         
     @override
     def prepare_training_attributes(self):

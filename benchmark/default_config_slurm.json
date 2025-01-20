@@ -34,7 +34,9 @@
             "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,
-            "sliding_window_size": 100
+            "sliding_window_size": 100,
+            "use_true_mixing": true,
+            "log_extra": true
         }
     },
     "dl_config": {
