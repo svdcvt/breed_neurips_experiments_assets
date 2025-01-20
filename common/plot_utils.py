@@ -50,11 +50,13 @@ def create_subplot_1d(nrows,
                       tids,
                       meshes):
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 10), sharex=True, sharey=True)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 10),
+                             sharex=True, sharey=True)
     labels = ["u_prev", "u_next", "u_next_hat"]
     u_prev, u_next, u_next_hat = meshes
     assert len(u_prev.shape) == 4
-    l, u = jnp.min(jnp.asarray(meshes)) - 0.1, jnp.max(jnp.asarray(meshes)) + 0.1
+    llim = jnp.min(jnp.asarray(meshes)) - 0.1
+    ulim = jnp.max(jnp.asarray(meshes)) + 0.1
     handles = []
     for row in range(nrows):
         for col in range(ncols):
@@ -70,7 +72,7 @@ def create_subplot_1d(nrows,
                     ax=ax,
                     xlabel="",
                     ylabel="",
-                    vlim=(l, u),
+                    vlim=(llim, ulim),
                     alpha=0.7,
                     linestyle="--" if label == "u_next_hat" else "-"
                 )
@@ -79,12 +81,15 @@ def create_subplot_1d(nrows,
             ax.set_title(f"sim={sim_ids[row][0]} t={tids[col]}")
 
     fig.text(0.5, -0.02, "Space", ha="center", fontsize=15)
-    fig.text(-0.02, 0.5, "Value", va="center", rotation="vertical", fontsize=15)
-    fig.legend(handles, labels, loc="upper center", ncol=len(labels), bbox_to_anchor=(0.5, 1.05))
+    fig.text(-0.02, 0.5, "Value", va="center", rotation="vertical",
+             fontsize=15)
+    fig.legend(handles, labels, loc="upper center", ncol=len(labels),
+               bbox_to_anchor=(0.5, 1.05))
     plt.tight_layout()
     plt.draw()
 
-    return mpl_to_tensorboard_image()
+    return fig
+    # return mpl_to_tensorboard_image()
 
 
 def create_subplot_2d(nrows,
@@ -94,9 +99,11 @@ def create_subplot_2d(nrows,
                       meshes):
 
     ncols = 4
-    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 10), sharex=True, sharey=True)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 10),
+                             sharex=True, sharey=True)
     labels = ["u_prev", "u_next", "u_next_hat", "error"]
-    assert len(meshes[0].shape) == 4, f"GOT shape of meshes[0] = {meshes[0].shape}"
+    assert len(meshes[0].shape) == 4, \
+        f"GOT shape of meshes[0] = {meshes[0].shape}"
     l, u = jnp.min(jnp.asarray(meshes)), jnp.max(jnp.asarray(meshes))
     for row in range(nrows):
         ax = axes[row]
@@ -124,7 +131,8 @@ def create_subplot_2d(nrows,
     plt.tight_layout()
     plt.draw()
 
-    return mpl_to_tensorboard_image()
+    return fig
+    # return mpl_to_tensorboard_image()
 
 
 def scatter_plot(x,
@@ -139,7 +147,7 @@ def scatter_plot(x,
                  show_colorbar=False,
                  colorbar_label=''):
 
-    plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(10, 8))
 
     if color_data is not None:
         sc = plt.scatter(x, y, c=color_data, cmap=cmap, edgecolor='k')
@@ -157,12 +165,17 @@ def scatter_plot(x,
     plt.grid(True)
     plt.tight_layout()
 
-    return mpl_to_tensorboard_image()
+    return fig
+    # return mpl_to_tensorboard_image()
 
 
 def delta_loss_scatter_plot(n, x, y, delta_loss):
     title = f"delta losses for sliding window (last) = {n} simulations"
-    return scatter_plot(x, y, color_data=delta_loss, cmap='Reds', title=title, show_colorbar=True, colorbar_label='delta loss')
+    return scatter_plot(
+        x, y,
+        color_data=delta_loss, cmap='Reds', title=title,
+        show_colorbar=True, colorbar_label='delta loss'
+    )
 
 
 def bred_scatter_plot(x, y, status):
@@ -172,7 +185,11 @@ def bred_scatter_plot(x, y, status):
 
 def validation_loss_scatter_plot_by_sim(x, y, loss):
     title = f"validation loss for {len(loss)} simulations"
-    return scatter_plot(x, y, color_data=loss, cmap='GnBu', title=title, show_colorbar=True, colorbar_label='loss')
+    return scatter_plot(
+        x, y,
+        color_data=loss, cmap='GnBu',
+        title=title, show_colorbar=True, colorbar_label='loss'
+    )
 
 
 def plot_seen_count_histogram(seen_counts):
@@ -188,7 +205,8 @@ def plot_seen_count_histogram(seen_counts):
 
 
 class DynamicHistogram():
-    def __init__(self, title='Histogram', cmap='magma', bins=50, size=(8,5), show_last=0):
+    def __init__(self, title='Histogram', cmap='magma',
+                 bins=50, size=(8, 5), show_last=0):
         self.cmap = plt.get_cmap(cmap)
         self.bins = bins
         self.fig, self.axes = plt.subplots(1, 1, figsize=size)
@@ -208,17 +226,27 @@ class DynamicHistogram():
         # 2. add histogram
         self.axes.hist(data, bins=self.bins, histtype='stepfilled', log=True)
         # 3. update colors
-        for i, color in enumerate(map(self.cmap, np.linspace(0, 1, self.current - self.first))):
+        for i, color in enumerate(map(self.cmap, np.linspace(
+            0, 1, self.current - self.first
+        ))):
             self.axes.patches[i].set_facecolor(color)
         # 4. update xlim
         xmin, xmax = min(data), max(data)
-        if (self.axes.get_xlim()[0] / xmin) <= 0.5 or xmin < self.axes.get_xlim()[0]:
+        if (
+            (self.axes.get_xlim()[0] / xmin) <= 0.5
+            or xmin < self.axes.get_xlim()[0]
+        ):
             self.axes.set_xlim(xmin, None)
-        if (xmax / self.axes.get_xlim()[1]) <= 0.5 or xmax > self.axes.get_xlim()[1]:
+        if (
+            (xmax / self.axes.get_xlim()[1]) <= 0.5
+            or xmax > self.axes.get_xlim()[1]
+        ):
             self.axes.set_xlim(None, xmax)
         # 5. when theres enough artists - remove first
         if self.show_last != 0 and self.current > self.show_last:
             self.axes.patches[0].remove()
             self.first = self.current - self.show_last
         # 6. update colorbar limit
-        self.cbar.mappable.set_norm(mpl.colors.Normalize(self.first, self.current))
+        self.cbar.mappable.set_norm(
+            mpl.colors.Normalize(self.first, self.current)
+        )

@@ -163,12 +163,11 @@ class APEBenchServer(CommonInitMixIn,
             if (batch_id + 1) % self.nb_batches_update == 0:
                 self.run_validation(batch_id)
         # endfor
-        img = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
-        if img is not None:
-            self.tb_logger.writer.add_image(
+        fig = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
+        if fig is not None:
+            self.tb_logger.writer.add_figure(
                 "SeenCountsHistogram",
-                img,
-                dataformats="HWC",
+                fig
             )
 
     def training_step(self, batch, batch_id):
@@ -356,7 +355,7 @@ class APEBenchServer(CommonInitMixIn,
                     u_next[pids[:, None], tids],
                     u_next_hat[pids[:, None], tids]
                 ]
-                img = putils.create_subplot_1d(
+                fig = putils.create_subplot_1d(
                     nrows,
                     ncols,
                     self.scenario.domain_extent,
@@ -378,19 +377,18 @@ class APEBenchServer(CommonInitMixIn,
                     for data in [u_prev, u_next, u_next_hat]
                 ]
                 
-                img = putils.create_subplot_2d(
+                fig = putils.create_subplot_2d(
                     nrows,
                     self.scenario.domain_extent,
                     sim_ids,
                     tids,
                     meshes
                 )                
-            if img is not None:
-                self.tb_logger.writer.add_image(
+            if fig is not None:
+                self.tb_logger.writer.add_figure(
                     "ValidationMeshPredictions",
-                    img,
-                    batch_id,
-                    dataformats="HWC",
+                    fig,
+                    batch_id
                 )
 
     def validation_loss_scatter_plot(self, batch_id, loss_by_sim):
@@ -403,12 +401,11 @@ class APEBenchServer(CommonInitMixIn,
             ]
             x = self.valid_parameters[sids, 0]
             y = self.valid_parameters[sids, 1]
-            img = putils.validation_loss_scatter_plot_by_sim(x, y, ls)
-            self.tb_logger.writer.add_image(
+            fig = putils.validation_loss_scatter_plot_by_sim(x, y, ls)
+            self.tb_logger.writer.add_figure(
                 "Scatter/ValidationLoss",
-                img,
-                batch_id,
-                dataformats="HWC"
+                fig,
+                batch_id
             )
 
     @override
