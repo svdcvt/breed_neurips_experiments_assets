@@ -3,21 +3,13 @@ import rapidjson as json
 import argparse
 
 
-def update_breed_params(config, period, sigma, start, end, breakpoint, window_size):
-    config['active_sampling_config']['nn_updates'] = int(period)
-    config['active_sampling_config']['breed_params']['sigma'] = sigma
-    config['active_sampling_config']['breed_params']['start'] = start
-    config['active_sampling_config']['breed_params']['end'] = end
-    config['active_sampling_config']['breed_params']['breakpoint'] = int(breakpoint)
-    config['active_sampling_config']['breed_params']['sliding_window_size'] = int(window_size)
-
-
 def modify_json(input_config_file,
                 output_config_file,
                 output_dir,
                 scenario_config,
                 sampler=None,
                 validation_directory=None,
+                use_true_mixing=False,
                 # sigma,
                 # start,
                 # end,
@@ -41,11 +33,11 @@ def modify_json(input_config_file,
         if validation_directory is not None:
             config["dl_config"]["validation_directory"] = validation_directory
         config['sampler_type'] = sampler
-        if sampler == "breed":
-            pass
-            # update_bree_params(
-            #     config, period, sigma, start, end, breakpoint, window_size
-            # )
+        if "breed" in sampler:
+            breed_params = {
+                "use_true_mixing": use_true_mixing
+            }
+            config['active_sampling_config']['breed_params'].update(breed_params)
         else:
             config['active_sampling_config']['nn_updates'] = -1
 

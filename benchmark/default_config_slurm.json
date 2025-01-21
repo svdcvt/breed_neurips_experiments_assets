@@ -21,7 +21,8 @@
         "seed": 1234,
         "simulation_timeout": 60,
         "crashes_before_redraw": 1,
-        "verbosity": 2
+        "verbosity": 2,
+        "log_extra": false
     },
     "sampler_type": "breed",
     "active_sampling_config": {
@@ -35,8 +36,8 @@
             "end": 0.9,
             "breakpoint": 5,
             "sliding_window_size": 100,
-            "use_true_mixing": true,
-            "log_extra": true
+            "use_true_mixing": false,
+            "log_extra": false
         }
     },
     "dl_config": {

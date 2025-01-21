@@ -193,15 +193,16 @@ def validation_loss_scatter_plot_by_sim(x, y, loss):
 
 
 def plot_seen_count_histogram(seen_counts):
-    plt.figure()
+    fig = plt.figure()
     ax = plt.gca()
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     plt.hist(np.array(seen_counts), edgecolor='k')
     plt.xlabel("Number of seen counts")
     plt.ylabel("Frequency")
     plt.tight_layout()
-
-    return mpl_to_tensorboard_image()
+    
+    return fig
+    # return mpl_to_tensorboard_image()
 
 
 class DynamicHistogram():

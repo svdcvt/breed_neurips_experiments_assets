@@ -15,7 +15,7 @@ VALID_FILE = f"{DEFAULT_ROOT}/default_config_offline.json"
 
 
 def for_training(train_dir_root, valid_dir_root, input_train_file, ape_config):
-    for sampler in ["uniform", "breed"]:
+    for sampler in ["uniform", "breed", "breed_mix"]:
 
         s = ape_config["scenario_name"]
         n = ape_config["network_config"].replace(";", "_")
@@ -36,10 +36,10 @@ def for_training(train_dir_root, valid_dir_root, input_train_file, ape_config):
             output_config_file=output_config_file,
             output_dir=output_dir,
             scenario_config=ape_config,
-            validation_directory=validation_directory
+            validation_directory=validation_directory,
+            use_true_mixing=sampler == "breed_mix"
         )
-
-    return os.path.split(output_config_file)[-1]
+        print(os.path.split(output_config_file)[-1])
 
 
 def for_validation(valid_dir_root, input_valid_file, ape_config):
@@ -57,8 +57,8 @@ def for_validation(valid_dir_root, input_valid_file, ape_config):
         scenario_config=ape_config,
         offline=True
     )
+    print(os.path.split(output_config_file)[-1])
 
-    return os.path.split(output_config_file)[-1]
 
 
 def run(train_dir_root, valid_dir_root,
@@ -71,21 +71,17 @@ def run(train_dir_root, valid_dir_root,
     for ape_config in APEBENCH_STUDIES:
         if offline:
             ape_config.pop("network_config")
-            print(
-                for_validation(
-                    valid_dir_root,
-                    input_valid_file,
-                    ape_config
-                )
+            for_validation(
+                valid_dir_root,
+                input_valid_file,
+                ape_config
             )
         else:
-            print(
-                for_training(
-                    train_dir_root,
-                    valid_dir_root,
-                    input_train_file,
-                    ape_config
-                )
+            for_training(
+                train_dir_root,
+                valid_dir_root,
+                input_train_file,
+                ape_config
             )
 
 
