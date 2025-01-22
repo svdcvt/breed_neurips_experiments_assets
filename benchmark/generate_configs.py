@@ -15,7 +15,7 @@ VALID_FILE = f"{DEFAULT_ROOT}/default_config_offline.json"
 
 
 def for_training(train_dir_root, valid_dir_root, input_train_file, ape_config):
-    for sampler in ["uniform", "breed", "breed_mix"]:
+    for sampler_type, sampler_suffix in [("uniform", "uniform"), ("breed", "breed"), ("breed", "breed_mix")]:
 
         s = ape_config["scenario_name"]
         n = ape_config["network_config"].replace(";", "_")
@@ -24,20 +24,20 @@ def for_training(train_dir_root, valid_dir_root, input_train_file, ape_config):
         validation_suffix = f"{s}_{g}"
         validation_directory = \
             f"{validation_hierarchy}/VALIDATION_OUT_{validation_suffix}/trajectories"  # noqa
-        suffix = f"{s}_{n}_{g}_{sampler}"
+        suffix = f"{s}_{n}_{g}_{sampler_suffix}"
         hierarchy = f"{train_dir_root}/{s}/{n}/gamma_{g}"
         os.makedirs(hierarchy, exist_ok=True)
         output_dir = f"STUDY_OUT_{suffix}"
         output_config_file = f"{hierarchy}/config_{suffix}.json"
 
         modify_json(
-            sampler=sampler,
+            sampler=sampler_type,
             input_config_file=input_train_file,
             output_config_file=output_config_file,
             output_dir=output_dir,
             scenario_config=ape_config,
             validation_directory=validation_directory,
-            use_true_mixing=sampler == "breed_mix"
+            use_true_mixing=sampler_suffix == "breed_mix"
         )
         print(os.path.split(output_config_file)[-1])
 

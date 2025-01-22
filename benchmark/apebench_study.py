@@ -11,8 +11,8 @@ CONFIGS = [
         "advection_gamma": advection_gamma,
     }
     for net in [
-        *[f"Conv;34;{depth};relu" for depth in [0, 2]],  # , 1, 2, 10]],
-        "UNet;12;2;relu",  # 27'193 params, 29 receptive field per direction
+        *[f"Conv;34;{depth};relu" for depth in [0]],  # , 1, 2, 10]],
+        # "UNet;12;2;relu",  # 27'193 params, 29 receptive field per direction
         # "Res;26;8;relu",  # 32'943 params, 16 receptive field per direction
         "FNO;12;18;4;gelu",  # 32'527 params, inf receptive field per direction
         # "Dil;2;32;2;relu",  # 31'777 params, 20 receptive field per direction

@@ -37,7 +37,7 @@
             "breakpoint": 5,
             "sliding_window_size": 100,
             "use_true_mixing": false,
-            "log_extra": false
+            "log_extra": true
         }
     },
     "dl_config": {
