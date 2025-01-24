@@ -26,6 +26,7 @@
     "sampler_type": "breed",
     "active_sampling_config": {
         "skip_nb_batches": 200,
+        "breed_limit": 20,
         "nn_updates": 100,
         "non_resampling_threshold": 10,
         "breed_params": {

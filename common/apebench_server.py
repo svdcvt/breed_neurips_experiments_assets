@@ -52,6 +52,7 @@ class CommonInitMixIn:
         else:
             self.breed_params = {}
         self.scenario = MelissaSpecificScenario(**scenario_config)
+        assert self.scenario.train_temporal_horizon == self.nb_time_steps
         ic_config = scenario_config["ic_config"]
         ic_type = ic_config.split(";")[0]
         self.sampler_t = get_sampler_class_type(
@@ -177,6 +178,8 @@ class APEBenchServer(CommonInitMixIn,
         u_prev, u_next, sim_ids_list, time_step_list = batch
         u_prev = jnp.asarray(u_prev)
         u_next = jnp.asarray(u_next)
+        assert jnp.isnan(jnp.min(u_prev) is False 
+        assert jnp.isnan(jnp.min(u_prev) is False
         (
             self.model,
             self.opt_state,
@@ -190,6 +193,7 @@ class APEBenchServer(CommonInitMixIn,
             u_next,
             self.opt_state,
         )
+        assert jnp.isnan(batch_loss) is False
         for key, val in tutils.get_grads_stats(grads).items():
             self.tb_logger.log_scalar(f"Gradients/{key}", val, batch_id)
         logger.info(f"BATCH={batch_id} loss={batch_loss:.2e}")

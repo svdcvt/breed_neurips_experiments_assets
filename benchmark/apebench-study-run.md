@@ -78,9 +78,35 @@ configs/advection_1d_varying_diff/train
 
 ## Run all scripts under specified folder recursively
 The script will traverse all folders recursively from the give path and looks for `*.json` that are not in the output folder of the previous runs. If the job is already submitted it will not be submitted again based on extracted `status 0` string from the `melissa_server_0.log`.
+
+`./by_folder.sh <folder-to-search> <submission-script>`
+
+
+> **Note:** _It is necessary that you run one job at a time as there is some influence of SLURM daemon delays that can make study run for longer periods.
+https://gitlab.inria.fr/melissa/melissa/-/issues/47_
+
+`by_folder.sh` is written in such a way that it creates a dependency per `sbatch` call to ensure all the recursively submitted studies run one-by-one.
+
+### Validation runs
 ```bash
-# ./by_folder.sh <folder-to-search> <submission-script>
-./by_folder.sh configs/train/diff_adv/Conv_34_0_relu/gamma_10_5 ../jz_semig_job.sh
+(python-3.10.4) [uyl42ho@jean-zay3: benchmark]$ ./by_folder.sh configs/advection_1d_varying_diff/validation/diff_adv ../jz_offline_job.sh
+Submitted configs/advection_1d_varying_diff/validation/diff_adv/gamma_2_5/config_diff_adv_2_5.json as Job ID 2164001
+Submitted configs/advection_1d_varying_diff/validation/diff_adv/gamma_0_5/config_diff_adv_0_5.json as Job ID 2164003
+Submitted configs/advection_1d_varying_diff/validation/diff_adv/gamma_10_5/config_diff_adv_10_5.json as Job ID 2164005
+```
+
+### Training runs
+
+Running studies under `diff_burgers/` folder.
+
+```bash
+(python-3.10.4) [uyl42ho@jean-zay3: benchmark]$ ./by_folder.sh configs/broad_comparison_1d/train/diff_burgers ../jz_semig_job.sh 
+Submitted configs/broad_comparison_1d/train/diff_burgers/FNO_12_18_4_gelu/config_diff_burgers_FNO_12_18_4_gelu_breed_mix.json as Job ID 2166620
+Submitted configs/broad_comparison_1d/train/diff_burgers/FNO_12_18_4_gelu/config_diff_burgers_FNO_12_18_4_gelu_breed.json as Job ID 2166621
+Submitted configs/broad_comparison_1d/train/diff_burgers/FNO_12_18_4_gelu/config_diff_burgers_FNO_12_18_4_gelu_uniform.json as Job ID 2166622
+Submitted configs/broad_comparison_1d/train/diff_burgers/Conv_34_10_relu/config_diff_burgers_Conv_34_10_relu_breed_mix.json as Job ID 2166623
+Submitted configs/broad_comparison_1d/train/diff_burgers/Conv_34_10_relu/config_diff_burgers_Conv_34_10_relu_breed.json as Job ID 2166624
+Submitted configs/broad_comparison_1d/train/diff_burgers/Conv_34_10_relu/config_diff_burgers_Conv_34_10_relu_uniform.json as Job ID 2166625
 ```
 
 ### Cleanup
@@ -88,4 +114,6 @@ Run this to clear unnecessary folders for all the `STUDY_OUT*/` under a specifie
 ```bash
 ./cleanup.sh <folder-to-clean>
 ```
+
+> **Note:** _Make sure there is no study currently running while executing cleanup._
 

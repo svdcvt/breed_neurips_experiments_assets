@@ -40,6 +40,7 @@ class MelissaSpecificScenario:
         self.domain_extent = self.stepper.domain_extent
         self.dt = self.stepper.dt
 
+        self.train_temporal_horizon = self.scenario.train_temporal_horizon
         self.num_channels = self.scenario.num_channels
         self.num_points = self.scenario.num_points
         self.sampled_ic_config = sampled_ic_config \
