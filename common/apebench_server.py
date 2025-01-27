@@ -178,8 +178,8 @@ class APEBenchServer(CommonInitMixIn,
         u_prev, u_next, sim_ids_list, time_step_list = batch
         u_prev = jnp.asarray(u_prev)
         u_next = jnp.asarray(u_next)
-        assert jnp.isnan(jnp.min(u_prev) is False 
-        assert jnp.isnan(jnp.min(u_prev) is False
+        assert jnp.isnan(jnp.min(u_prev)) is False 
+        assert jnp.isnan(jnp.min(u_prev)) is False
         (
             self.model,
             self.opt_state,

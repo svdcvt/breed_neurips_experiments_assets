@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import os
+import sys
 import time
 import argparse
 
@@ -66,6 +67,12 @@ def run_online(stepper, ic, flattened_mesh_size):
     st = time.time()
     for t in range(NB_STEPS):
         u_next = stepper(u)
+        if jnp.isnan(u_next).any():
+            print(
+                f"NaN values encountered at t={t}. Aborting the solver.",
+                file=sys.stderr
+            )
+            os.exit(1)
         melissa_send(
             FIELD_PREV_POSITION,
             np.asarray(u).flatten()
@@ -89,6 +96,11 @@ def run_offline(stepper, ic):
     )
     st = time.time()
     trajectory = rollout_stepper(ic)
+    if jnp.isnan(trajectory).any():
+        print(
+            f"NaN values encountered in the trajectory.",
+            file=sys.stderr
+        )
     sim_id = os.getenv("MELISSA_SIMU_ID")
     os.makedirs(VALIDATION_DIR, exist_ok=True)
     jnp.save(f"{VALIDATION_DIR}/sim{sim_id}.npy", trajectory)
