@@ -1,4 +1,5 @@
 # flake8: noqa
+import time
 import logging
 
 from typing_extensions import override
@@ -178,8 +179,6 @@ class APEBenchServer(CommonInitMixIn,
         u_prev, u_next, sim_ids_list, time_step_list = batch
         u_prev = jnp.asarray(u_prev)
         u_next = jnp.asarray(u_next)
-        assert jnp.isnan(jnp.min(u_prev)) is False 
-        assert jnp.isnan(jnp.min(u_prev)) is False
         (
             self.model,
             self.opt_state,
@@ -193,7 +192,12 @@ class APEBenchServer(CommonInitMixIn,
             u_next,
             self.opt_state,
         )
-        assert jnp.isnan(batch_loss) is False
+        if jnp.isnan(batch_loss):
+            logger.error(f"LOSSES = {loss_per_sample}")
+            logger.error(f"SIM IDS = {sim_lids_list}")
+            logger.error(f"TIME STEPS = {time_step_list}")
+            time.sleep(5)
+            os.exit(1)
         for key, val in tutils.get_grads_stats(grads).items():
             self.tb_logger.log_scalar(f"Gradients/{key}", val, batch_id)
         logger.info(f"BATCH={batch_id} loss={batch_loss:.2e}")

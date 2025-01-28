@@ -64,6 +64,12 @@ def run_online(stepper, ic, flattened_mesh_size):
     melissa_init(FIELD_POSITION, flattened_mesh_size, comm)
 
     u = ic
+    if jnp.isnan(u).any():
+        print(
+            f"NaN values encountered in IC. Aborting the solver.",
+            file=sys.stderr
+        )
+        os.exit(1)
     st = time.time()
     for t in range(NB_STEPS):
         u_next = stepper(u)
