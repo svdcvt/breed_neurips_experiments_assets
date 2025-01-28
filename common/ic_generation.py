@@ -75,9 +75,9 @@ class SupSineWave(SineWave):
         config_parts = self.sampled_ic_config.split(";")
         self.ic_maker = ex.ic.SineWaves1d(
             domain_extent=self.domain_extent,
-            amplitudes=(float(config_parts[1]), float(config_parts[2])),
+            amplitudes=(float(config_parts[1]), float(config_parts[3])),
             wavenumbers=(1, 2),
-            phases=(float(config_parts[3]), float(config_parts[4])),
+            phases=(float(config_parts[2]), float(config_parts[4])),
             std_one=config_parts[-2].lower() == "true",
             max_one=config_parts[-1].lower() == "true",
         )
