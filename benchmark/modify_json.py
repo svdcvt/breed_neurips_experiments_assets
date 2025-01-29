@@ -32,14 +32,25 @@ def modify_json(input_config_file,
     if not offline:
         if validation_directory is not None:
             config["dl_config"]["validation_directory"] = validation_directory
-        config['sampler_type'] = sampler
         if "breed" in sampler:
             breed_params = {
                 "use_true_mixing": use_true_mixing
             }
             config['active_sampling_config']['breed_params'].update(breed_params)
         else:
-            config['active_sampling_config']['nn_updates'] = -1
+            # config['active_sampling_config']['nn_updates'] = -1
+            # we want to still use DefaultBreeder even with uniform sampling
+            # but we keep the ratio to 0 as to not breed anything
+            # this is just a quick hack to make number of batches equal between
+            # breed and uniform runs
+            sampler = "breed"
+            breed_params = {
+                "start": 0.0,
+                "end": 0.0,
+            }
+            config['active_sampling_config']['breed_params'].update(breed_params)
+
+        config['sampler_type'] = sampler
 
     fname = os.path.split(output_config_file)[-1]
     config['client_config']['preprocessing_commands'].append(
