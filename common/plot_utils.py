@@ -50,9 +50,12 @@ def create_subplot_1d(nrows,
                       tids,
                       meshes):
 
+    default_lw = plt.rcParams["lines.linewidth"]
+    lw = default_lw * 0.8
     fig, axes = plt.subplots(nrows, ncols, figsize=(12, 10),
                              sharex=True, sharey=True)
     labels = ["u_prev", "u_next", "u_next_hat"]
+    linestyles = ["-", "--", ":"]
     u_prev, u_next, u_next_hat = meshes
     assert len(u_prev.shape) == 4
     llim = jnp.min(jnp.asarray(meshes)) - 0.1
@@ -61,7 +64,7 @@ def create_subplot_1d(nrows,
     for row in range(nrows):
         for col in range(ncols):
             ax = axes[row, col]
-            for label, state in zip(labels, [
+            for label, lsty, state in zip(labels, linestyles, [
                 u_prev[row, col],
                 u_next[row, col],
                 u_next_hat[row, col]
@@ -74,7 +77,8 @@ def create_subplot_1d(nrows,
                     ylabel="",
                     vlim=(llim, ulim),
                     alpha=0.7,
-                    linestyle="--" if label == "u_next_hat" else "-"
+                    linewidth=lw,
+                    linestyle=lsty
                 )
                 if row == 0 and col == 0:
                     handles.append(p[0])
@@ -84,7 +88,7 @@ def create_subplot_1d(nrows,
     fig.text(-0.02, 0.5, "Value", va="center", rotation="vertical",
              fontsize=15)
     fig.legend(handles, labels, loc="upper center", ncol=len(labels),
-               bbox_to_anchor=(0.5, 1.05))
+               bbox_to_anchor=(0.5, 0.97))
     plt.tight_layout()
     plt.draw()
 
