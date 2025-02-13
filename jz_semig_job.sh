@@ -7,7 +7,7 @@
 ##SBATCH --qos=qos_cpu-dev
 #SBATCH --qos=qos_cpu-t3
 #SBATCH --exclusive
-#SBATCH --nodes=1
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=20 --cpus-per-task=2 --hint=nomultithread
 
 module load cmake zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda

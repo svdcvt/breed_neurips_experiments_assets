@@ -19,18 +19,19 @@ CONFIGS = [
     }
     # for s in [0, 10, 20, 30, 40]
     for net in [
-        "Conv;34;10;relu",  # 31'757 params, 11 receptive field per direction
+        *[f"Conv;34;{d};relu" for d in [0]],
+        # "Conv;34;10;relu",  # 31'757 params, 11 receptive field per direction
         # "UNet;12;2;relu",  # 27'193 params, 29 receptive field per direction
         # "Res;26;8;relu",  # 32'943 params, 16 receptive field per direction
-        "FNO;12;18;4;gelu",  # 32'527 params, inf receptive field per direction
+        # "FNO;12;18;4;gelu",  # 32'527 params, inf receptive field per direction
         # "Dil;2;32;2;relu",  # 31'777 params, 20 receptive field per direction
     ]
     for scene in [
         # "diff_disp",
         "diff_burgers",
-        "diff_kdv",
+        # "diff_kdv",
         # "diff_ks_cons",  # was not used in the paper in the end
-        "diff_ks",
+        # "diff_ks",
     ]
 ]
 

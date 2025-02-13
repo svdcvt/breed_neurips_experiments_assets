@@ -426,6 +426,8 @@ class APEBenchServer(CommonInitMixIn,
                 batch_id
             )
 
+    def log_buffer_seen_ratio(self):
+        self.buffer.seen_list
     @override
     def checkpoint(self):
         pass

@@ -19,7 +19,7 @@ INPUT_VALID_FILE = "default_config_offline.json"
 def for_training(benchmark_name, ape_config):
     for sampler_type, sampler_suffix in [
         ("uniform", "uniform"),
-        ("breed", "breed"),
+        # ("breed", "breed"),
         ("breed", "breed_mix")
     ]:
         output_config_file, output_dir, validation_dir = \
