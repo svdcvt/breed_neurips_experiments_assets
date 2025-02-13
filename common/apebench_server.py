@@ -1,4 +1,5 @@
 # flake8: noqa
+import os
 import time
 import logging
 
@@ -78,8 +79,6 @@ class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
         CommonInitMixIn.__init__(self, config_dict, is_valid=True)
 
 
-# TODO: Melissa DL interface will change in the future
-# purely from the training perspective. Dataset -> Dataloader -> training
 class APEBenchServer(CommonInitMixIn,
                      ExperimentalDeepMelissaActiveSamplingServer):
 
@@ -140,34 +139,18 @@ class APEBenchServer(CommonInitMixIn,
                         show_last=50
                     )
                 )
-    
+
     @override
-    def setup_environment(self):
-        # initialize tensorboardLogger with torch
-        self._tb_logger = TorchTensorboardLogger(
-            self.rank,
-            disable=not self.dl_config["tensorboard"],
-            debug=self.verbose_level >= 3
-        )
-        # make sure set_parameter_sampler() is called
-        active_sampling.set_tb_logger(self.tb_logger)
+    def prepare_training_attributes(self):
 
-    def set_train_dataloader(self):
-        self.train_dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=self.batch_size,
-            drop_last=True,
-            num_workers=0
-        )
+        model = self.scenario.get_network()
+        optimizer = self.scenario.get_optimizer()
+        logger.info(f"Model parameters count: {pdeqx.count_parameters(model)}")
 
-    def train(self):
-        self.set_train_dataloader()
-        for batch_id, batch in enumerate(self.train_dataloader):
-            self.training_step(batch, batch_id)
+        return model, optimizer
 
-            if (batch_id + 1) % self.nb_batches_update == 0:
-                self.run_validation(batch_id)
-        # endfor
+    @override
+    def on_train_end(self):
         fig = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
         if fig is not None:
             self.tb_logger.writer.add_figure(
@@ -175,7 +158,8 @@ class APEBenchServer(CommonInitMixIn,
                 fig
             )
 
-    def training_step(self, batch, batch_id):
+    @override
+    def training_step(self, batch, batch_idx):
         u_prev, u_next, sim_ids_list, time_step_list = batch
         u_prev = jnp.asarray(u_prev)
         u_next = jnp.asarray(u_next)
@@ -194,14 +178,13 @@ class APEBenchServer(CommonInitMixIn,
         )
         if jnp.isnan(batch_loss):
             logger.error(f"LOSSES = {loss_per_sample}")
-            logger.error(f"SIM IDS = {sim_lids_list}")
+            logger.error(f"SIM IDS = {sim_ids_list}")
             logger.error(f"TIME STEPS = {time_step_list}")
             time.sleep(5)
             os.exit(1)
         for key, val in tutils.get_grads_stats(grads).items():
-            self.tb_logger.log_scalar(f"Gradients/{key}", val, batch_id)
-        logger.info(f"BATCH={batch_id} loss={batch_loss:.2e}")
-        self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_id)
+            self.tb_logger.log_scalar(f"Gradients/{key}", val, batch_idx)
+        self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_idx)
 
         if self.log_extra:
             self.plot_loss_distributions['train'].add_histogram_step(
@@ -210,7 +193,7 @@ class APEBenchServer(CommonInitMixIn,
             self.tb_logger.writer.add_figure(
                 "TrainLossHistogram",
                 self.plot_loss_distributions['train'].fig,
-                batch_id,
+                batch_idx,
                 close=False
             )
 
@@ -236,74 +219,91 @@ class APEBenchServer(CommonInitMixIn,
                 fits -= fits.min()
                 fits /= fits.sum()
                 self.tb_logger.log_scalar(
-                    'ESS', (fits.sum() ** 2) / (fits ** 2).sum(), batch_id
+                    'ESS', (fits.sum() ** 2) / (fits ** 2).sum(), batch_idx
                 )
                 self.tb_logger.log_scalar(
-                    'R_i', self._parameter_sampler.R_i, batch_id
+                    'R_i', self._parameter_sampler.R_i, batch_idx
                 )
+    @override
+    def on_validation_end(self, batch_idx):
+        """After running regular validation, run the rollout from ICs."""
+        if self.rank == 0 and self.valid_rollout > 1:
+            self.run_validation_rollout(batch_idx)
 
-            self.periodic_resampling(batch_id)
+    @override
+    def on_validation_start(self, batch_idx):
+        """Keep track of some variables for validation loop."""
+        self.loss_by_sim = {}
+        self.losses_per_sample = []
+        self.val_losses = []
 
-    def run_validation(self, batch_id):
-        if self.valid_dataloader is not None and self.rank == 0:
-            self.run_validation_regular(batch_id)
-
-            if self.valid_rollout > 1:
-                self.run_validation_rollout(batch_id)
-
-    def run_validation_regular(self, batch_id):
+    @override
+    def validation_step(self, batch, valid_batch_idx, batch_idx):
         """This loss is across all trajectories and their time steps.
         t[i] -> t[i + 1] 
         """
+        u_prev, u_next, sim_ids = batch
+        batch_shape = u_prev.shape
+        u_prev = jnp.asarray(u_prev).reshape(-1, *self.mesh_shape)
+        u_next = jnp.asarray(u_next).reshape(-1, *self.mesh_shape)
 
-        loss_by_sim = {}
-        losses_per_sample = []
-        val_loss = 0.0
-        count = 0
-        for vid, valid_batch_data in enumerate(self.valid_dataloader):
-            u_prev, u_next, sim_ids = valid_batch_data
-            batch_shape = u_prev.shape
-            u_prev = jnp.asarray(u_prev).reshape(-1, *self.mesh_shape)
-            u_next = jnp.asarray(u_next).reshape(-1, *self.mesh_shape)
+        batch_loss, loss_per_sample, u_next_hat = tutils.loss_fn(
+            self.model,
+            u_prev,
+            u_next,
+            is_valid=True
+        )
 
-            batch_loss, loss_per_sample, u_next_hat = tutils.loss_fn(
-                self.model,
+        self.loss_by_sim.update({
+            s.item(): l
+            for s, l in zip(sim_ids, loss_per_sample)
+        })
+        self.losses_per_sample.append(
+            loss_per_sample.ravel()
+        )
+        self.val_losses.append(batch_loss.item())
+
+        if (
+            (self.plot_1d or self.plot_2d)
+            and (batch_idx + 1) % (2 * self.nb_batches_update) == 0
+        ):
+            u_prev = u_prev.reshape(*batch_shape)
+            u_next = u_next.reshape(*batch_shape)
+            u_next_hat = u_next_hat.reshape(*batch_shape)
+            self.validation_mesh_plot(
+                batch_idx,
+                valid_batch_idx,
+                sim_ids,
                 u_prev,
                 u_next,
-                is_valid=True
+                u_next_hat
             )
-
-            loss_by_sim.update({
-                s.item(): l
-                for s, l in zip(sim_ids, loss_per_sample)
-            })
-            losses_per_sample.append(
-                loss_per_sample.ravel()
-            )
-            val_loss += batch_loss.item()
-            count += 1
-            if (
-                (self.plot_1d or self.plot_2d)
-                and (batch_id + 1) % (2 * self.nb_batches_update) == 0
-            ):
-                u_prev = u_prev.reshape(*batch_shape)
-                u_next = u_next.reshape(*batch_shape)
-                u_next_hat = u_next_hat.reshape(*batch_shape)
-                self.validation_mesh_plot(
-                    batch_id, vid, sim_ids, u_prev, u_next, u_next_hat
-                )
         # endfor
-        avg_val_loss = val_loss / count if count > 0 else 0.0
-        self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_id)
+        avg_val_loss = jnp.mean(self.val_losses) if len(self.val_losses) > 0 else 0.0
+        self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_idx)
         if self.log_extra:
-            self.plot_loss_distributions['validation'].add_histogram_step(np.hstack(losses_per_sample))
+            self.plot_loss_distributions['validation'].add_histogram_step(
+                np.hstack(self.losses_per_sample)
+            )
             self.tb_logger.writer.add_figure(
                 "ValidationLossHistogram",
                 self.plot_loss_distributions['validation'].fig,
-                batch_id,
+                batch_idx,
                 close=False
             )
-        # self.validation_loss_scatter_plot(batch_id, loss_by_sim)
+
+    @override
+    def process_simulation_data(self, msg, config_dict):
+        u_prev = msg.data["preposition"]
+        u_next = msg.data["position"]
+
+        u_prev = u_prev.reshape(*self.mesh_shape)
+        u_next = u_next.reshape(*self.mesh_shape)
+
+        u_prev = np.array(u_prev, copy=True)
+        u_next = np.array(u_next, copy=True)
+
+        return u_prev, u_next, msg.simulation_id, msg.time_step
 
     def run_validation_rollout(self, batch_id):
         """This loss is across all trajectories rolled out from their respective ICs.
@@ -335,28 +335,6 @@ class APEBenchServer(CommonInitMixIn,
                 batch_id,
                 close=False
             )
-        
-    @override
-    def prepare_training_attributes(self):
-
-        model = self.scenario.get_network()
-        optimizer = self.scenario.get_optimizer()
-        logger.info(f"Model parameters count: {pdeqx.count_parameters(model)}")
-
-        return model, optimizer
-
-    @override
-    def process_simulation_data(self, msg, config_dict):
-        u_prev = msg.data["preposition"]
-        u_next = msg.data["position"]
-
-        u_prev = u_prev.reshape(*self.mesh_shape)
-        u_next = u_next.reshape(*self.mesh_shape)
-
-        u_prev = np.array(u_prev, copy=True)
-        u_next = np.array(u_next, copy=True)
-
-        return u_prev, u_next, msg.simulation_id, msg.time_step
 
     def validation_mesh_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
         # only the first batch
