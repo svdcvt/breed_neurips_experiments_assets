@@ -224,11 +224,6 @@ class APEBenchServer(CommonInitMixIn,
                 self.tb_logger.log_scalar(
                     'R_i', self._parameter_sampler.R_i, batch_idx
                 )
-    @override
-    def on_validation_end(self, batch_idx):
-        """After running regular validation, run the rollout from ICs."""
-        if self.rank == 0 and self.valid_rollout > 1:
-            self.run_validation_rollout(batch_idx)
 
     @override
     def on_validation_start(self, batch_idx):
@@ -236,6 +231,25 @@ class APEBenchServer(CommonInitMixIn,
         self.loss_by_sim = {}
         self.losses_per_sample = []
         self.val_losses = []
+
+    @override
+    def on_validation_end(self, batch_idx):
+        avg_val_loss = jnp.mean(self.val_losses) if len(self.val_losses) > 0 else 0.0
+        self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_idx)
+        if self.log_extra:
+            self.plot_loss_distributions['validation'].add_histogram_step(
+                np.hstack(self.losses_per_sample)
+            )
+            self.tb_logger.writer.add_figure(
+                "ValidationLossHistogram",
+                self.plot_loss_distributions['validation'].fig,
+                batch_idx,
+                close=False
+            )
+
+        # after running regular validation, run the rollout from ICs
+        if self.rank == 0 and self.valid_rollout > 1:
+            self.run_validation_rollout(batch_idx)
 
     @override
     def validation_step(self, batch, valid_batch_idx, batch_idx):
@@ -265,7 +279,7 @@ class APEBenchServer(CommonInitMixIn,
 
         if (
             (self.plot_1d or self.plot_2d)
-            and (batch_idx + 1) % (2 * self.nb_batches_update) == 0
+            and batch_idx % (2 * self.nb_batches_update) == 0
         ):
             u_prev = u_prev.reshape(*batch_shape)
             u_next = u_next.reshape(*batch_shape)
@@ -277,19 +291,6 @@ class APEBenchServer(CommonInitMixIn,
                 u_prev,
                 u_next,
                 u_next_hat
-            )
-        # endfor
-        avg_val_loss = jnp.mean(self.val_losses) if len(self.val_losses) > 0 else 0.0
-        self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_idx)
-        if self.log_extra:
-            self.plot_loss_distributions['validation'].add_histogram_step(
-                np.hstack(self.losses_per_sample)
-            )
-            self.tb_logger.writer.add_figure(
-                "ValidationLossHistogram",
-                self.plot_loss_distributions['validation'].fig,
-                batch_idx,
-                close=False
             )
 
     @override
@@ -305,7 +306,7 @@ class APEBenchServer(CommonInitMixIn,
 
         return u_prev, u_next, msg.simulation_id, msg.time_step
 
-    def run_validation_rollout(self, batch_id):
+    def run_validation_rollout(self, batch_idx):
         """This loss is across all trajectories rolled out from their respective ICs.
         t[0] -> t[1] -> ... t[rollout]
         """
@@ -323,7 +324,7 @@ class APEBenchServer(CommonInitMixIn,
         self.tb_logger.log_scalar(
             f"Loss/valid_rollout (n={self.valid_rollout}) nRMSE",
             mean_loss.item(),
-            batch_id
+            batch_idx
         )
         if self.log_extra:
             self.plot_loss_distributions['valid_rollout'].add_histogram_step(
@@ -332,13 +333,13 @@ class APEBenchServer(CommonInitMixIn,
             self.tb_logger.writer.add_figure(
                 "ValidationRolloutLossHistogram",
                 self.plot_loss_distributions['valid_rollout'].fig,
-                batch_id,
+                batch_idx,
                 close=False
             )
 
-    def validation_mesh_plot(self, batch_id, vid, sim_ids, u_prev, u_next, u_next_hat):
+    def validation_mesh_plot(self, batch_idx, v_batch_idx, sim_ids, u_prev, u_next, u_next_hat):
         # only the first batch
-        if vid == 0:
+        if v_batch_idx == 1:
             sim_ids = sim_ids[self.plot_row_ids].tolist()
             pids = jnp.asarray(self.plot_row_ids)
             tids = jnp.asarray(self.plot_tids)
@@ -384,10 +385,10 @@ class APEBenchServer(CommonInitMixIn,
                 self.tb_logger.writer.add_figure(
                     "ValidationMeshPredictions",
                     fig,
-                    batch_id
+                    batch_idx
                 )
 
-    def validation_loss_scatter_plot(self, batch_id, loss_by_sim):
+    def validation_loss_scatter_plot(self, batch_idx, loss_by_sim):
 
         if self.valid_parameters is not None:
             sids = list(sorted(loss_by_sim.keys()))
@@ -401,7 +402,7 @@ class APEBenchServer(CommonInitMixIn,
             self.tb_logger.writer.add_figure(
                 "Scatter/ValidationLoss",
                 fig,
-                batch_id
+                batch_idx
             )
 
     def log_buffer_seen_ratio(self):
