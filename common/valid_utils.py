@@ -45,7 +45,9 @@ class TrajectoryDataset:
         return len(self.file_list)
 
     def __getitem__(self, idx):
-        if not isinstance(idx, list):
+        if isinstance(idx, slice):
+            idx = list(range(len(self)))[idx]
+        elif not isinstance(idx, list):
             idx = [idx]
 
         trajectories = []

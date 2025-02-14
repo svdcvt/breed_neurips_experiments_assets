@@ -195,7 +195,7 @@ class APEBenchServer(CommonInitMixIn,
 
         if self.is_breed_study:
             delta_losses = \
-                active_sampling.calculate_delta_loss(loss_per_sample.tolist())
+                active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
             active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
 
             if self.log_extra:
@@ -219,7 +219,7 @@ class APEBenchServer(CommonInitMixIn,
 
     @override
     def on_validation_end(self, batch_idx):
-        avg_val_loss = jnp.mean(self.val_losses) if len(self.val_losses) > 0 else 0.0
+        avg_val_loss = np.mean(self.val_losses) if len(self.val_losses) > 0 else 0.0
         self.tb_logger.log_scalar("Loss/valid", avg_val_loss, batch_idx)
         if self.log_extra:
             self.plot_loss_distributions['validation'].add_histogram_step(
@@ -390,10 +390,8 @@ class APEBenchServer(CommonInitMixIn,
                 batch_idx
             )
 
-    def log_buffer_seen_ratio(self):
-        self.buffer.seen_list
     @override
-    def checkpoint(self):
+    def checkpoint(self, batch_idx):
         pass
 
     @override
