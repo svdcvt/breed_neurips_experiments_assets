@@ -6,7 +6,6 @@ import logging
 from typing_extensions import override
 import numpy as np
 import jax.numpy as jnp
-import torch
 import pdequinox as pdeqx
 
 from melissa.server.deep_learning.tensorboard_logger import (  # type: ignore
@@ -198,8 +197,8 @@ class APEBenchServer(CommonInitMixIn,
             )
 
         if self.is_breed_study:
-            loss_per_sample = torch.tensor(loss_per_sample.tolist())
-            batch_loss = torch.tensor(batch_loss.item())
+            loss_per_sample = loss_per_sample.tolist()
+            batch_loss = batch_loss.item()
             batch_loss_relative = \
                 active_sampling.get_relative_loss(loss_per_sample)
             for sim_id, t_step, sample_loss in zip(

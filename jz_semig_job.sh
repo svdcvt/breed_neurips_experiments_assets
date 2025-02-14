@@ -15,7 +15,6 @@ module load cmake zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda
 source $WORK/apebench/MELISSA/melissa_set_env.sh
 
 export APEBENCH_ROOT="$WORK/apebench"
-export TORCH_PATH=$APEBENCH_ROOT/MELISSA/install/torch
-export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT/test/common:$APEBENCH_ROOT/test:$TORCH_PATH
+export PYTHONPATH=$PYTHONPATH:$APEBENCH_ROOT/test/common:$APEBENCH_ROOT/test
 
 exec melissa-launcher --config_name "$1"

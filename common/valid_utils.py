@@ -1,14 +1,12 @@
 import logging
 import os
 import os.path as osp
-import torch
 import numpy as np
-
 
 logger = logging.getLogger("melissa")
 
 
-class TrajectoryDataset(torch.utils.data.Dataset):
+class TrajectoryDataset:
     """Loads trajectories stored in numpy files, specific for validation."""
 
     def __init__(
@@ -21,12 +19,10 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         only_trajectory=False,
         rollout_size=-1
     ):
-
         np.random.seed(seed)
         self.data_dir = data_dir
         self.output_shape = output_shape
         self.nb_time_steps = nb_time_steps
-        # prev offset is introduced if we have different dynamicity
         self.offset = solver_time_steps // nb_time_steps
         logger.info(f"Validation will be set to t -> t + {self.offset}*dt")
 
@@ -38,15 +34,6 @@ class TrajectoryDataset(torch.utils.data.Dataset):
             if f.endswith(".npy") and "sim" in f
         ]
 
-        # valdiation is massive and GPU memory gets exhausted.
-        # we, therefore, choose `trajectory_size` time step indices
-        # across different simulation files.
-        # self.trajectory_size = int(0.5 * (self.nb_time_steps - self.offset))
-        # self.time_step_ids = np.random.randint(
-        #     low=0,
-        #     high=self.nb_time_steps - self.offset,
-        #     size=(len(self.file_list), self.trajectory_size),
-        # )
         self.trajectory_size = self.nb_time_steps - self.offset
         self.time_step_ids = np.tile(
             np.arange(0, self.nb_time_steps - self.offset),
@@ -57,10 +44,6 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         return len(self.file_list)
 
     def __getitem__(self, idx):
-
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
         if not isinstance(idx, list):
             idx = [idx]
 
@@ -68,17 +51,20 @@ class TrajectoryDataset(torch.utils.data.Dataset):
         prepos_data = []
         pos_data = []
 
-        for i in idx:  # sim{i}.npy
+        for i in idx:
             path = osp.join(self.data_dir, self.file_list[i])
             trajectory = np.load(
                 path,
-                mmap_mode="r"  # do not load everything at once
+                mmap_mode="r"
             ).astype(np.float32)
+
             if self.only_trajectory:
                 trajectories.append(trajectory[:self.rollout_size + 1])
             else:
                 prepos_data.append(trajectory[self.time_step_ids[i]])
-                pos_data.append(trajectory[self.time_step_ids[i] + self.offset])
+                pos_data.append(
+                    trajectory[self.time_step_ids[i] + self.offset]
+                )
 
         sim_ids = np.array(idx)
         if self.only_trajectory:
@@ -87,15 +73,19 @@ class TrajectoryDataset(torch.utils.data.Dataset):
                 trajectories = trajectories.squeeze(axis=0)
             return trajectories, sim_ids
 
-        # list of np.ndarray -> torch is slow. convert to np.ndarray
-        # first and then to torch.
-        u_prev = np.array(prepos_data)  # .reshape(-1, *self.output_shape)
-        u_next = np.array(pos_data)  # .reshape(-1, *self.output_shape)
+        u_prev = np.array(prepos_data)
+        u_next = np.array(pos_data)
         if u_prev.shape[0] == 1:
             u_prev = u_prev.squeeze(axis=0)
             u_next = u_next.squeeze(axis=0)
 
         return u_prev, u_next, sim_ids
+
+
+def batch_generator(dataset, batch_size):
+    """Creates batches from dataset."""
+    for i in range(0, len(dataset), batch_size):
+        yield [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
 
 
 def load_validation_data(validation_dir,
@@ -104,8 +94,7 @@ def load_validation_data(validation_dir,
                          nb_time_steps,
                          output_shape,
                          only_trajectories_dataset=False,
-                         rollout_size=-1
-                         ):
+                         rollout_size=-1):
     if validation_dir is None:
         return None, None, None
 
@@ -125,7 +114,7 @@ def load_validation_data(validation_dir,
                 only_trajectory=True,
                 rollout_size=rollout_size
             )
- 
+
         valid_dataset = TrajectoryDataset(
             seed=seed,
             data_dir=validation_dir,
@@ -134,14 +123,9 @@ def load_validation_data(validation_dir,
             nb_time_steps=nb_time_steps,
             only_trajectory=False
         )
-        valid_dataloader = torch.utils.data.DataLoader(
-            dataset=valid_dataset,
-            batch_size=valid_batch_size,
-            num_workers=0, # do not change. jax deadlocks
-            persistent_workers=False,
-            shuffle=False,
-            drop_last=False,
-        )
+
+        valid_dataloader = batch_generator(valid_dataset, valid_batch_size)
+
         params_path = osp.join(validation_dir, "input_parameters.npy")
         if osp.exists(params_path):
             valid_parameters = np.load(params_path)

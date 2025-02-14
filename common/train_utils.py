@@ -1,4 +1,3 @@
-import torch
 import jax
 import jax.numpy as jnp
 import equinox as eqx
@@ -10,11 +9,6 @@ DIM2AXIS = {
     2: (1, 2),
     3: (1, 2, 3)
 }
-
-
-def jax2torch(jax_array):
-    numpy_array = jnp.asarray(jax_array).copy()
-    return torch.tensor(numpy_array)
 
 
 def normalize():
