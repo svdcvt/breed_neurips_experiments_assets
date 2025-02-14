@@ -8,9 +8,6 @@ import numpy as np
 import jax.numpy as jnp
 import pdequinox as pdeqx
 
-from melissa.server.deep_learning.tensorboard_logger import (  # type: ignore
-    TorchTensorboardLogger
-)
 from melissa.server.offline_server import OfflineServer  # type: ignore
 from melissa.server.deep_learning import active_sampling  # type: ignore
 from melissa.server.deep_learning.active_sampling.active_sampling_server import (  # type: ignore
@@ -152,7 +149,7 @@ class APEBenchServer(CommonInitMixIn,
     def on_train_end(self):
         fig = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
         if fig is not None:
-            self.tb_logger.writer.add_figure(
+            self.tb_logger.log_figure(
                 "SeenCountsHistogram",
                 fig
             )
@@ -189,7 +186,7 @@ class APEBenchServer(CommonInitMixIn,
             self.plot_loss_distributions['train'].add_histogram_step(
                 np.asarray(loss_per_sample)
             )
-            self.tb_logger.writer.add_figure(
+            self.tb_logger.log_figure(
                 "TrainLossHistogram",
                 self.plot_loss_distributions['train'].fig,
                 batch_idx,
@@ -239,7 +236,7 @@ class APEBenchServer(CommonInitMixIn,
             self.plot_loss_distributions['validation'].add_histogram_step(
                 np.hstack(self.losses_per_sample)
             )
-            self.tb_logger.writer.add_figure(
+            self.tb_logger.log_figure(
                 "ValidationLossHistogram",
                 self.plot_loss_distributions['validation'].fig,
                 batch_idx,
@@ -329,7 +326,7 @@ class APEBenchServer(CommonInitMixIn,
             self.plot_loss_distributions['valid_rollout'].add_histogram_step(
                 np.asarray(per_traj_loss)
             )
-            self.tb_logger.writer.add_figure(
+            self.tb_logger.log_figure(
                 "ValidationRolloutLossHistogram",
                 self.plot_loss_distributions['valid_rollout'].fig,
                 batch_idx,
@@ -381,7 +378,7 @@ class APEBenchServer(CommonInitMixIn,
                     meshes
                 )                
             if fig is not None:
-                self.tb_logger.writer.add_figure(
+                self.tb_logger.log_figure(
                     "ValidationMeshPredictions",
                     fig,
                     batch_idx
@@ -398,7 +395,7 @@ class APEBenchServer(CommonInitMixIn,
             x = self.valid_parameters[sids, 0]
             y = self.valid_parameters[sids, 1]
             fig = putils.validation_loss_scatter_plot_by_sim(x, y, ls)
-            self.tb_logger.writer.add_figure(
+            self.tb_logger.log_figure(
                 "Scatter/ValidationLoss",
                 fig,
                 batch_idx
