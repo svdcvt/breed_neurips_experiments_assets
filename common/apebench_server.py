@@ -194,20 +194,9 @@ class APEBenchServer(CommonInitMixIn,
             )
 
         if self.is_breed_study:
-            loss_per_sample = loss_per_sample.tolist()
-            batch_loss = batch_loss.item()
-            batch_loss_relative = \
-                active_sampling.get_relative_loss(loss_per_sample)
-            for sim_id, t_step, sample_loss in zip(
-                sim_ids_list, time_step_list, loss_per_sample
-            ):
-                active_sampling.record_delta_loss(
-                    sim_id.item(),
-                    t_step.item(),
-                    sample_loss,
-                    batch_loss,
-                    batch_loss_relative,
-                )
+            delta_losses = \
+                active_sampling.calculate_delta_loss(loss_per_sample.tolist())
+            active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
 
             if self.log_extra:
                 fits, _ = active_sampling.get_fitnesses()
