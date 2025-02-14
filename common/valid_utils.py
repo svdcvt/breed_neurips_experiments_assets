@@ -3,6 +3,7 @@ import os
 import os.path as osp
 import numpy as np
 
+
 logger = logging.getLogger("melissa")
 
 
@@ -82,10 +83,12 @@ class TrajectoryDataset:
         return u_prev, u_next, sim_ids
 
 
-def batch_generator(dataset, batch_size):
-    """Creates batches from dataset."""
-    for i in range(0, len(dataset), batch_size):
-        yield [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
+def basic_batch_generator(dataset, batch_size):
+
+    n = len(dataset)
+    for i in range(0, n, batch_size):
+        j = min(n, i + batch_size)
+        yield dataset[i:j]
 
 
 def load_validation_data(validation_dir,
@@ -124,7 +127,10 @@ def load_validation_data(validation_dir,
             only_trajectory=False
         )
 
-        valid_dataloader = batch_generator(valid_dataset, valid_batch_size)
+        valid_dataloader = basic_batch_generator(
+            valid_dataset,
+            valid_batch_size
+        )
 
         params_path = osp.join(validation_dir, "input_parameters.npy")
         if osp.exists(params_path):
