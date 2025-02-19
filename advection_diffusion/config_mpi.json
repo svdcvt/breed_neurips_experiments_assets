@@ -1,0 +1,77 @@
+{
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchServer",
+    "output_dir": "STUDY_OUT_adv_diff_1d_breed",
+    "ignore_client_death": true,
+    "study_options": {
+        "scenario_config": {
+            "scenario_name": "diff_adv_diff",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
+            "network_config": "MLP;64;3;relu"
+        },
+        "field_names": [
+            "preposition",
+            "position"
+        ],
+        "parameter_sweep_size": 10,
+        "nb_time_steps": 50,
+        "nb_parameters": 4,
+        "l_bounds": [-1.0, 0.0, -1.0, 0.0],
+        "u_bounds": [1.0, "2 * np.pi", 1.0, "2 * np.pi"],
+        "seed": 1234,
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2
+    },
+    "sampler_type": "breed",
+    "active_sampling_config": {
+        "breed_limit": 20,
+        "nn_updates": 50,
+        "non_resampling_threshold": 10,
+        "breed_params": {
+            "non_breed_sampling_strategy": "random",
+            "sigma": [0.5, 1.0, 0.5, 1.0],
+            "start": 0.3,
+            "end": 0.9,
+            "breakpoint": 5,
+            "sliding_window_size": 100,
+            "use_true_mixing": true,
+            "log_extra": true
+        }
+    },
+    "dl_config": {
+        "validation_directory": "$APEBENCH_ROOT/advection_diffusion/VALIDATION_OUT_1d_adv_diff/trajectories",
+        "valid_rollout": 5,
+        "nb_batches_update": 10,
+        "batch_size": 10, 
+        "per_server_watermark": 10,
+        "buffer_size": 2000,
+        "buffer": "Reservoir",
+        "convert_log_to_df": true
+    },
+    "launcher_config": {
+        "scheduler": "openmpi",
+        "scheduler_arg_server": ["-n", "1", "--oversubscribe"],
+        "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
+        "job_limit": 6,
+        "server_timeout": 60,
+        "timer_delay": 10,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true,
+        "http_port": 8898
+    },
+    "client_config": {
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
+        "command_default_args": [],
+        "preprocessing_commands": [
+            "export CONFIG_FILE=config_mpi.json",
+	    "export JAX_PLATFORMS=cpu"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+	    "export JAX_PLATFORMS=cpu"
+        ]
+    }
+}
