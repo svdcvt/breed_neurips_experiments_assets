@@ -13,7 +13,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 10,
+        "parameter_sweep_size": 50,
         "nb_time_steps": 50,
         "nb_parameters": 4,
         "l_bounds": [-1.0, 0.0, -1.0, 0.0],
@@ -21,12 +21,12 @@
         "seed": 1234,
         "simulation_timeout": 60,
         "crashes_before_redraw": 1,
-        "verbosity": 2
+        "verbosity": 5
     },
     "sampler_type": "breed",
     "active_sampling_config": {
         "breed_limit": 20,
-        "nn_updates": 50,
+        "nn_updates": 20,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
@@ -34,7 +34,7 @@
             "start": 0.3,
             "end": 0.9,
             "breakpoint": 5,
-            "sliding_window_size": 100,
+            "sliding_window_size": 10,
             "use_true_mixing": true,
             "log_extra": true
         }
@@ -42,9 +42,9 @@
     "dl_config": {
         "validation_directory": "$APEBENCH_ROOT/advection_diffusion/VALIDATION_OUT_1d_adv_diff/trajectories",
         "valid_rollout": 5,
-        "nb_batches_update": 10,
-        "batch_size": 10, 
-        "per_server_watermark": 10,
+        "nb_batches_update": 20,
+        "batch_size": 20, 
+        "per_server_watermark": 50,
         "buffer_size": 2000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
