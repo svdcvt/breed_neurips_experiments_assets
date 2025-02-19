@@ -13,7 +13,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 50,
+        "parameter_sweep_size": 100,
         "nb_time_steps": 50,
         "nb_parameters": 4,
         "l_bounds": [-1.0, 0.0, -1.0, 0.0],
@@ -42,9 +42,9 @@
     "dl_config": {
         "validation_directory": "$APEBENCH_ROOT/advection_diffusion/VALIDATION_OUT_1d_adv_diff/trajectories",
         "valid_rollout": 5,
-        "nb_batches_update": 20,
-        "batch_size": 20, 
-        "per_server_watermark": 50,
+        "nb_batches_update": 50,
+        "batch_size": 64, 
+        "per_server_watermark": 200,
         "buffer_size": 2000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
@@ -71,7 +71,7 @@
     },
     "server_config": {
         "preprocessing_commands": [
-	    "export JAX_PLATFORMS=cpu"
+	    // "export JAX_PLATFORMS=cpu"
         ]
     }
 }

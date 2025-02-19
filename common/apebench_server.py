@@ -391,10 +391,6 @@ class APEBenchServer(CommonInitMixIn,
             )
 
     @override
-    def _synchronize_data_availability(self):
-        return self.comm_size == 1 and not self.buffer.empty()
-
-    @override
     def checkpoint(self, batch_idx):
         pass
 
