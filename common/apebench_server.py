@@ -68,6 +68,7 @@ class CommonInitMixIn:
             u_bounds=u_bounds,
             dtype=np.float32
         )
+        self.experimental_monitoring = True
 
 
 class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
@@ -197,18 +198,6 @@ class APEBenchServer(CommonInitMixIn,
             delta_losses = \
                 active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
             active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
-
-            if self.log_extra:
-                fits, _ = active_sampling.get_fitnesses()
-                fits = np.array(fits)
-                fits -= fits.min()
-                fits /= fits.sum()
-                self.tb_logger.log_scalar(
-                    'ESS', (fits.sum() ** 2) / (fits ** 2).sum(), batch_idx
-                )
-                self.tb_logger.log_scalar(
-                    'R_i', self._parameter_sampler.R_i, batch_idx
-                )
 
     @override
     def on_validation_start(self, batch_idx):
