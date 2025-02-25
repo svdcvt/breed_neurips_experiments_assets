@@ -13,7 +13,7 @@
             "position"
         ],
         "parameter_sweep_size": 100,
-        "nb_time_steps": 100,
+        "nb_time_steps": 200,
         "nb_parameters": 4,
         "l_bounds": [-1.0, 0.0, -1.0, 0.0],
         "u_bounds": [1.0, "2 * np.pi", 1.0, "2 * np.pi"],
