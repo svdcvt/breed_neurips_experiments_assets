@@ -385,7 +385,7 @@ class APEBenchServer(CommonInitMixIn,
             )
 
     @override
-    def checkpoint(self, batch_idx):
+    def checkpoint(self, batch_idx, path):
         pass
 
     @override
