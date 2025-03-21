@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #OAR -n melissa-study
-#OAR -l /nodes=1/gpu=1,walltime=00:30:00
+#OAR -l /nodes=1/gpu=1,walltime=01:30:00
 #OAR -p gpumodel='V100'
 #OAR --stdout std/%jobid%.out
 #OAR --stderr std/%jobid%.err

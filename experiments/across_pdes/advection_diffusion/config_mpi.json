@@ -1,7 +1,7 @@
 {
     "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_adv_diff_1d_breed",
+    "output_dir": "STUDY_OUT_adv_diff_1d_breed_n1000",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
@@ -13,7 +13,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 100,
+        "parameter_sweep_size": 1000,
         "nb_time_steps": 50,
         "nb_parameters": 4,
         "l_bounds": [-1.0, 0.0, -1.0, 0.0],
@@ -26,36 +26,36 @@
     "sampler_type": "breed",
     "active_sampling_config": {
         "breed_limit": 20,
-        "nn_updates": 20,
+        "nn_updates": 200,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            "sigma": [0.5, 1.0, 0.5, 1.0],
-            "start": 0.3,
-            "end": 0.9,
+            "sigma": [0.05, 0.2, 0.05, 0.2],
+            "start": 1.0,
+            "end": 0.8,
             "breakpoint": 5,
-            "sliding_window_size": 10,
+            "sliding_window_size": 50,
             "use_true_mixing": true,
             "log_extra": true
         }
     },
     "dl_config": {
-        "validation_directory": "$APEBENCH_ROOT/advection_diffusion/VALIDATION_OUT_1d_adv_diff/trajectories",
+        "validation_directory": "$APEBENCH_ROOT/experiments/across_pdes/advection_diffusion/VALIDATION_OUT_1d_adv_diff/trajectories",
         "valid_rollout": 5,
-        "nb_batches_update": 50,
+        "nb_batches_update": 100,
         "batch_size": 64, 
-        "per_server_watermark": 200,
-        "buffer_size": 2000,
+        "per_server_watermark": 5000,
+        "buffer_size": 10000,
         "buffer": "Reservoir",
         "convert_log_to_df": true
     },
     "launcher_config": {
         "scheduler": "openmpi",
-        "scheduler_arg_server": ["-n", "1", "--oversubscribe"],
+        "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
         "job_limit": 6,
-        "server_timeout": 60,
-        "timer_delay": 10,
+        "server_timeout": 600,
+        "timer_delay": 2,
         "fault_tolerance": false,
         "verbosity": 2,
         "std_output": true,
