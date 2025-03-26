@@ -1,0 +1,80 @@
+{
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchServer",
+    "output_dir": "STUDY_OUT_adv_diff_1d_breed_n1000_Conv10_N_4096_gamma_m4_12",
+    "ignore_client_death": true,
+    "study_options": {
+        "scenario_config": {
+            "scenario_name": "diff_adv_diff",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
+            "network_config": "Conv;34;10;relu",
+            "num_points": 4096,
+            "advection_gamma": -4,
+            "diffusion_gamma": 12
+        },
+        "field_names": [
+            "preposition",
+            "position"
+        ],
+        "parameter_sweep_size": 300,
+        "nb_time_steps": 50,
+        "nb_parameters": 4,
+        "l_bounds": [-1.0, 0.0, -1.0, 0.0],
+        "u_bounds": [1.0, "2 * np.pi", 1.0, "2 * np.pi"],
+        "seed": 1234,
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 5
+    },
+    "sampler_type": "breed",
+    "active_sampling_config": {
+        "breed_limit": 20,
+        "nn_updates": 200,
+        "non_resampling_threshold": 10,
+        "breed_params": {
+            "non_breed_sampling_strategy": "random",
+            "sigma": [0.05, 0.2, 0.05, 0.2],
+            "start": 1.0,
+            "end": 0.8,
+            "breakpoint": 5,
+            "sliding_window_size": 50,
+            "use_true_mixing": true,
+            "log_extra": true
+        }
+    },
+    "dl_config": {
+        "validation_directory": "$APEBENCH_ROOT/experiments/across_pdes/advection_diffusion/VALIDATION_OUT_1d_adv_diff/trajectories",
+        "valid_rollout": 5,
+        "nb_batches_update": 1000000,
+        "batch_size": 64, 
+        "per_server_watermark": 5000,
+        "buffer_size": 10000,
+        "buffer": "Reservoir",
+        "convert_log_to_df": true
+    },
+    "launcher_config": {
+        "scheduler": "openmpi",
+        "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
+        "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
+        "job_limit": 6,
+        "server_timeout": 600,
+        "timer_delay": 2,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true,
+        "http_port": 1898
+    },
+    "client_config": {
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
+        "command_default_args": [],
+        "preprocessing_commands": [
+            "export CONFIG_FILE=config_mpi.json",
+	    "export JAX_PLATFORMS=cpu"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+	    // "export JAX_PLATFORMS=cpu"
+        ]
+    }
+}

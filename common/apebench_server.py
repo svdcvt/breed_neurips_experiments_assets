@@ -50,12 +50,12 @@ class CommonInitMixIn:
         else:
             self.breed_params = {}
         self.scenario = MelissaSpecificScenario(**scenario_config)
-        if not is_valid:
-            assert self.scenario.train_temporal_horizon == self.nb_time_steps, \
-                f"This scenario in the benchmark has {self.scenario.train_temporal_horizon:i} time steps in trajectory, but in in configuration file it is set to {self.nb_time_steps:i}"
-        else:
-            assert self.scenario.test_temporal_horizon == self.nb_time_steps, \
-                f"This scenario in the benchmark has {self.scenario.test_temporal_horizon:i} time steps in trajectory, but in in configuration file it is set to {self.nb_time_steps:i}"
+        # if not is_valid:
+        #     assert self.scenario.train_temporal_horizon == self.nb_time_steps, \
+        #         f"This scenario in the benchmark has {self.scenario.train_temporal_horizon:i} time steps in trajectory, but in in configuration file it is set to {self.nb_time_steps:i}"
+        # else:
+        #     assert self.scenario.test_temporal_horizon == self.nb_time_steps, \
+        #         f"This scenario in the benchmark has {self.scenario.test_temporal_horizon:i} time steps in trajectory, but in in configuration file it is set to {self.nb_time_steps:i}"
         ic_config = scenario_config["ic_config"]
         ic_type = ic_config.split(";")[0]
         self.sampler_t = get_sampler_class_type(

@@ -10,6 +10,7 @@ import exponax as ex
 from mpi4py import MPI
 import numpy as np
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 
 from melissa_api import (  # type: ignore
     melissa_init,
@@ -57,7 +58,13 @@ def get_default_parser():
     return parser
 
 
-def run_online(stepper, ic, flattened_mesh_size):
+def run_online(stepper, ic, flattened_mesh_size, sampled_ic_config):
+    if np.random.rand() < 0.01:
+        print('SUPPOSE TO HAVE A PLOT at', os.getcwd())
+        to_plot = True
+        traj = np.empty((NB_STEPS+1, flattened_mesh_size))
+    else:
+        to_plot = False
     comm = MPI.COMM_WORLD
 
     melissa_init(FIELD_PREV_POSITION, flattened_mesh_size, comm)
@@ -65,11 +72,14 @@ def run_online(stepper, ic, flattened_mesh_size):
 
     u = ic
     if jnp.isnan(u).any():
+        print("IC config:", sampled_ic_config, file=sys.stderr)
         print(
             f"NaN values encountered in IC. Aborting the solver.",
             file=sys.stderr
         )
-        os.exit(1)
+        os._exit(1)
+    if to_plot:
+        traj[0] = np.asarray(ic).flatten()
     st = time.time()
     for t in range(NB_STEPS):
         u_next = stepper(u)
@@ -78,7 +88,9 @@ def run_online(stepper, ic, flattened_mesh_size):
                 f"NaN values encountered at t={t}. Aborting the solver.",
                 file=sys.stderr
             )
-            os.exit(1)
+            print('Previous step stats:', u.min(), u.max(), u.mean(), file=sys.stderr)
+            print("IC config:", sampled_ic_config, file=sys.stderr)
+            os._exit(1)
         melissa_send(
             FIELD_PREV_POSITION,
             np.asarray(u).flatten()
@@ -89,9 +101,21 @@ def run_online(stepper, ic, flattened_mesh_size):
         )
         print(f"t={t} solved")
         u = u_next.copy()
+        if to_plot:
+            traj[t+1] = np.asarray(u_next).flatten()
 
     melissa_finalize()
     print(f"Total time taken {time.time() - st:.2f} sec.")
+    if to_plot:
+        fig, ax = plt.subplots(1, 2, figsize=(9,4))
+        ax[0].plot(traj[0], label='IC')
+        ax[0].plot(traj[-1], label='Last')
+        ax[0].legend()
+        ax[0].set_ylim(-1.4, 1.4)
+        ax[1].imshow(traj.T, cmap='coolwarm', vmin=-1.4, vmax=1.4, aspect='auto')
+        pars = [float(s) for s in sampled_ic_config.split(';')[1:5]]
+
+        fig.savefig(f'difA_{abs(pars[0]-pars[2])/1.4:.2f}_difPh_{abs((abs(pars[1]-pars[3])/(2*np.pi))-0.5):.2f}.png')
 
 
 def run_offline(stepper, ic):
@@ -119,6 +143,28 @@ def run_solver(offline, sampled_ic_config):
         **SCENARIO_CONFIG
     )
     stepper = scenario.get_stepper()
+    print(stepper)
+    try:
+        print("difficulty gamma and delta from object")
+        print(stepper.linear_difficulties)
+        print(stepper.convection_difficulty)
+    except:
+        pass
+    
+    print('normalized_linear_coefficients and normalized_convection_scale')
+    print(stepper.normalized_linear_coefficients)
+    print(stepper.normalized_convection_scale)
+    print("difficulty gamma and delta")
+    difficulty_linear_coefficients = [
+        alpha * stepper.num_points**j * 2 ** (j - 1) * 1
+        for j, alpha in enumerate(stepper.normalized_linear_coefficients)
+    ]
+    difficulty_convection_scale = stepper.normalized_convection_scale * (
+        1.0 * stepper.num_points * 1
+    )
+    print(difficulty_linear_coefficients)
+    print(difficulty_convection_scale)
+
     data_shape = scenario.get_shape()
     flattened_mesh_size = np.prod(data_shape)
     input_fn_config = SCENARIO_CONFIG.get("input_fn_config", {})
@@ -127,7 +173,7 @@ def run_solver(offline, sampled_ic_config):
     if offline:
         run_offline(stepper, ic)
     else:
-        run_online(stepper, ic, flattened_mesh_size)
+        run_online(stepper, ic, flattened_mesh_size, sampled_ic_config)
 
 
 if __name__ == "__main__":

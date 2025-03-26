@@ -1,0 +1,53 @@
+{
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchOfflineServer",
+    "output_dir": "VALIDATION_OUT_1d_burgers/N_1600_gamma_500_delta_30",
+    "study_options": {
+        "scenario_config": {
+            "scenario_name": "diff_burgers",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
+            "network_config": "MLP;64;3;relu",
+            "num_points": 1600,
+            "diffusion_gamma": 500,
+            "convection_delta": -30
+        },
+        "field_names": [
+            "preposition",
+            "position"
+        ],
+        "parameter_sweep_size": 500,
+        "nb_time_steps": 100,
+        "nb_parameters": 4,
+        "l_bounds": [-0.7, 0.0, -0.7, 0.0],
+        "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi"],
+        "seed": 54321,
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2
+    },
+    "launcher_config": {
+        "scheduler": "openmpi",
+        "scheduler_arg_server": ["-n", "1", "--oversubscribe"],
+        "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
+        "job_limit": 6,
+        "server_timeout": 60,
+        "timer_delay": 2,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true,
+        "http_port": 8898
+    },
+    "client_config": {
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
+        "command_default_args": ["--offline"],
+        "preprocessing_commands": [
+            "export CONFIG_FILE=config_offline_mpi.json",
+	        "export JAX_PLATFORMS=cpu"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+	    // "export JAX_PLATFORMS=cpu"
+        ]
+    }
+}

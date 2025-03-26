@@ -1,0 +1,78 @@
+{
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchServer",
+    "output_dir": "STUDY_OUT_burgers_1d_breed_roll_99_N_1600_gamma_500_delta_30_Res",
+    "ignore_client_death": true,
+    "study_options": {
+        "scenario_config": {
+            "scenario_name": "norm_burgers",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
+            "network_config": "Res;26;8;relu",
+            "num_points": 4800
+        },
+        "field_names": [
+            "preposition",
+            "position"
+        ],
+        "parameter_sweep_size": 500,
+        "nb_time_steps": 50,
+        "nb_parameters": 4,
+        "l_bounds": [-0.7, 0.0, -0.7, 0.0],
+        "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi"],
+        "seed": 1234,
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2
+    },
+    "sampler_type": "breed",
+    "active_sampling_config": {
+        "breed_limit": 20,
+        "nn_updates": 25,
+        "non_resampling_threshold": 10,
+        "breed_params": {
+            "non_breed_sampling_strategy": "random",
+            "sigma": [0.05, 0.2, 0.05, 0.2],
+            "start": 1.0,
+            "end": 0.8,
+            "breakpoint": 5,
+            "sliding_window_size": 20,
+            "use_true_mixing": true,
+            "log_extra": true
+        }
+    },
+    "dl_config": {
+        "validation_directory": "$APEBENCH_ROOT/experiments/across_pdes/diff_burgers/VALIDATION_OUT_1d_burgers/N_1600_gamma_500_delta_30/trajectories",
+        "valid_rollout": 99,
+        "nb_batches_update": 50,
+        "batch_size": 64, 
+        "per_server_watermark": 3000,
+        "buffer_size": 5000,
+        "buffer": "Reservoir",
+        "convert_log_to_df": true
+    },
+    "launcher_config": {
+        "scheduler": "openmpi",
+        "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
+        "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
+        "job_limit": 7,
+        "server_timeout": 600,
+        "timer_delay": 2,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true,
+        "http_port": 1898
+    },
+    "client_config": {
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
+        "command_default_args": [],
+        "preprocessing_commands": [
+            "export CONFIG_FILE=config_mpi.json",
+	    "export JAX_PLATFORMS=cpu"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+	    // "export JAX_PLATFORMS=cpu"
+        ]
+    }
+}
