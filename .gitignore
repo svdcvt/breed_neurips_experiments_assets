@@ -14,3 +14,5 @@ validation/**
 benchmark/**/*.json
 !benchmark/default_*.json
 benchmark/*.zip
+.vscode/settings.json
+melissa-202*
