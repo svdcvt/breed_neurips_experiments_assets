@@ -6,6 +6,7 @@ import logging
 from typing_extensions import override
 import numpy as np
 import jax.numpy as jnp
+import jax
 import pdequinox as pdeqx
 import exponax as ex
 
@@ -20,6 +21,8 @@ from melissa.server.deep_learning.active_sampling.active_sampling_server import 
 import train_utils as tutils
 import valid_utils as vutils
 import plot_utils as putils
+import debug_utils as dutils
+
 from sampler import get_sampler_class_type
 from scenarios import MelissaSpecificScenario
 
@@ -27,6 +30,14 @@ logger = logging.getLogger("melissa")
 logging.getLogger("jax").setLevel(logging.ERROR)
 logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
+
+def debug_print(a, name):
+    if isinstance(a, jnp.ndarray):
+        logger.info(f"LOOK! {name}: device: {a.device} type: {type(a)} dtype: {a.dtype} nbytes: {a.nbytes/1024/1024:.2f} MB | ptr: {a.unsafe_buffer_pointer()}")
+    elif isinstance(a, np.ndarray):
+        logger.info(f"LOOK! {name}: type: {type(a)} dtype: {a.dtype} nbytes: {a.nbytes/1024/1024:.2f} MB | ptr: {a.data} and {np.byte_bounds(a)[0]}")
+    else:
+        logger.info(f"LOOK! {name}: type: {type(a)}")
 
 class CommonInitMixIn:
     def __init__(self, config_dict, is_valid=False):
@@ -131,6 +142,10 @@ class APEBenchServer(CommonInitMixIn,
                         show_last=50
                     )
                 )
+        
+        self.memory_monitor = dutils.MemoryMonitor()
+        self.pid = os.getpid()
+        logger.info(f"Server Process ID: {self.pid}")
 
     @override
     def prepare_training_attributes(self):
@@ -143,21 +158,76 @@ class APEBenchServer(CommonInitMixIn,
             self.opt_state = tutils.init_optimizer_state(optimizer, model)
         logger.info("Training attributes prepared.")
         return model, optimizer
-
+    
     @override
-    def on_train_end(self):
-        fig = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
-        if fig is not None:
-            self.tb_logger.log_figure(
-                "SeenCountsHistogram",
-                fig
-            )
+    def process_simulation_data(self, msg, config_dict):
+        self.memory_monitor.print_stats(f"Before processing simulation data {msg.simulation_id}-{msg.time_step}")
+        u_prev = msg.data["preposition"].reshape(*self.mesh_shape)
+        u_next = msg.data["position"].reshape(*self.mesh_shape)
+        self.memory_monitor.print_stats("After")
+        # try:
+        #     debug_print(u_prev, f"u_prev j_t={msg.simulation_id}, {msg.time_step} from msg")
+        # except Exception as e:
+        #     pass
+
+        # u_prev = u_prev.
+        # u_next = u_next.
+
+        # try:
+        #     debug_print(u_prev, f"u_prev j_t={msg.simulation_id}, {msg.time_step} from msg after reshape")
+        # except Exception as e:
+        #     pass
+
+        # u_prev = np.array(u_prev, copy=True)
+        # u_next = np.array(u_next, copy=True)
+
+        # try:
+        #     debug_print(u_prev, f"u_prev j_t={msg.simulation_id}, {msg.time_step} from msg after copy")
+        # except Exception as e:
+        #     pass
+
+        return u_prev, u_next, msg.simulation_id, msg.time_step
+    
+    @override
+    def on_train_start(self):
+        logger.info("Training started.")
 
     @override
     def training_step(self, batch, batch_idx):
+        logger.info(f"Training batch {batch_idx} started.")
+        # log memory stats
+        # try:
+        #     for i, d in enumerate(jax.devices('gpu')):
+        #         for k, v in d.memory_stats().items():
+        #             self.tb_logger.log_scalar(f"Device_gpu{i}/Memory_{k}", v, batch_idx)
+        #     logger.info(f"Memory stats of gpu logged for batch {batch_idx}.")
+        # except Exception as e:
+        #     logger.info(f"Memory stats of gpu logging failed: {e}")
+        #     logger.info(d.memory_stats())
+        #     logger.info(d)
+        # try:
+        #     for i, d in enumerate(jax.devices('cpu')):
+        #         for k, v in d.memory_stats().items():
+        #             self.tb_logger.log_scalar(f"Device_cpu{i}/Memory_{k}", v, batch_idx)
+        #     logger.info(f"Memory stats of cpu logged for batch {batch_idx}.")
+        # except Exception as e:
+        #     logger.info(f"Memory stats of cpu logging failed: {e}")
+        #     logger.info(d.memory_stats())
+        #     logger.info(d)
+
         u_prev, u_next, sim_ids_list, time_step_list = batch
+        self.memory_monitor.print_stats(f"Before loding training batch {batch_idx}")
         u_prev = jnp.asarray(u_prev)
         u_next = jnp.asarray(u_next)
+        # logger.info(f"Batch shape: {u_prev.shape}, {u_next.shape}")
+        # try:
+        #     debug_print(u_prev, "u_prev from batch")
+        #     debug_print(u_next, "u_next from batch")
+        # except Exception as e:
+        #     logger.info(f"Failed to print u_prev and u_next: {e}")
+        self.memory_monitor.print_stats(f"After and before passing to NN")
+
+        # logger.info(f"Batch {batch_idx} data loaded.")
         (
             self.model,
             self.opt_state,
@@ -170,6 +240,11 @@ class APEBenchServer(CommonInitMixIn,
             u_next,
             self.opt_state
         )
+        batch_loss.block_until_ready()
+        self.memory_monitor.print_stats(f"After training batch {batch_idx}")
+        
+        #loss_per_sample.block_until_ready() # not sure!
+
         if jnp.isnan(batch_loss):
             logger.error(f"LOSSES = {loss_per_sample}")
             logger.error(f"SIM IDS = {sim_ids_list}")
@@ -178,6 +253,7 @@ class APEBenchServer(CommonInitMixIn,
             os.exit(1)
         
         self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_idx)
+        logger.info(f"Batch {batch_idx} Loss: {batch_loss.item():.2e}")
 
         if self.log_extra:
             self.plot_loss_distributions['train'].add_histogram_step(
@@ -196,6 +272,20 @@ class APEBenchServer(CommonInitMixIn,
             active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
         
         jax.clear_caches()
+        self.memory_monitor.print_stats(f"After clearing cache in training batch {batch_idx}")
+
+    @override
+    def on_train_end(self):
+        fig = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
+        if fig is not None:
+            self.tb_logger.log_figure(
+                "SeenCountsHistogram",
+                fig
+            )
+        # TODO create plot of predictions?
+        # TODO create plot of final parameters trained on
+        # TODO create loss plots for paper?
+        # TODO timing ?
 
     @override
     def on_validation_start(self, batch_idx):
@@ -203,28 +293,56 @@ class APEBenchServer(CommonInitMixIn,
         self.loss_by_sim = {}
         self.losses_per_sample = []
         self.batch_val_losses = []
+        self.memory_monitor.print_stats(f"Before validation start")
         # TODO shitcoded generator because it was empty after previous validation lol
         self.valid_dataloader = vutils.batch_generator(self.valid_dataset, self.valid_batch_size)
+        logger.info("Validation started.")
+
     @override
     def validation_step(self, batch, valid_batch_idx, batch_idx):
         """This loss is across all trajectories and their time steps.
         t[i] -> t[i + 1] 
         """
+        logger.info(f"Validation batch {valid_batch_idx} started.")
         u_prev_indices, u_next_indices = batch
+        self.memory_monitor.print_stats(f"Before loading validation batch {valid_batch_idx}")
         u_step = jnp.asarray(self.valid_dataset[u_prev_indices]).reshape(-1, *self.mesh_shape)
+        # try:
+        #     debug_print(u_step, "u_step from vald dataset load on gpu")
+        # except Exception as e:
+        #     pass
+        self.memory_monitor.print_stats(f"After loading validation batch {valid_batch_idx}")
         u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
+        # try:
+        #     debug_print(u_step, "u_step from model")
+        # except Exception as e:
+        #     pass
+        u_step.block_until_ready()
+        self.memory_monitor.print_stats(f"After passing to NN")
+
         with jax.default_device(jax.devices("cpu")[0]):
             u_next = jnp.asarray(self.valid_dataset[u_next_indices]).reshape(-1, *self.mesh_shape)
+            # try:
+            #     debug_print(u_next, "u_next from cpu valid dataset")
+            # except Exception as e:
+            #     pass
+            self.memory_monitor.print_stats(f"After loading validation batch {valid_batch_idx} on cpu")
             loss_per_sample = jnp.mean((u_step - u_next) ** 2, axis=tuple(range(1, len(self.mesh_shape) + 1)))
             batch_loss = jnp.mean(loss_per_sample)
             if batch_loss is np.nan:
                 logger.error(f"LOSSES = {loss_per_sample}")
+
+            logger.info(f"Validation batch {valid_batch_idx} Loss: {batch_loss.item():.2e}")
             self.losses_per_sample.append(
                 loss_per_sample.ravel()
             )
             self.batch_val_losses.append(batch_loss.item())
+            self.memory_monitor.print_stats(f"After validation batch {valid_batch_idx}")
+        
+        
     @override
     def on_validation_end(self, batch_idx):
+        logger.info("Validation ended.")
         avg_val_loss = np.nanmean(self.batch_val_losses) if len(self.batch_val_losses) > 0 else np.nan
         self.tb_logger.log_scalar("Loss_valid/mean", avg_val_loss, batch_idx)
 
@@ -255,11 +373,15 @@ class APEBenchServer(CommonInitMixIn,
                 batch_idx,
                 close=False
             )
-
+        
+        logger.info(f"Validation loss: {avg_val_loss:.2e}")
         # after running regular validation, run the rollout from ICs
+        self.memory_monitor.print_stats(f"End of validation loop, Before validation rollout")
         if self.rank == 0 and self.valid_rollout > 0:
             logger.info("Running validation rollout.")
             self.run_validation_rollout(batch_idx, save_intermediate=True)
+            self.memory_monitor.print_stats(f"After validation rollout")
+        
         jax.clear_caches()
         self.memory_monitor.print_stats(f"After clearing cache in validation batch {batch_idx}")
 
