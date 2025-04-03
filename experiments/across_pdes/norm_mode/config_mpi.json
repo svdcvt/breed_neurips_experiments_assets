@@ -1,52 +1,55 @@
 {
     "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_burgers_1d_breed_roll_99_N_1600_gamma_500_delta_30_Res",
+    "output_dir": "STUDY_OUT_burgers_1d_breed_Res_26_4_highres_fast_B8_buf500",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
-            "scenario_name": "norm_burgers",
-            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
-            "network_config": "Res;26;8;relu",
-            "num_points": 4800
+            "scenario_name": "diff_burgers",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;true",
+            "network_config": "Res;26;4;relu",
+            "num_points": 1600000,
+            "diffusion_gamma": 184320000.0,
+            "convection_delta": -24000
         },
         "field_names": [
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 500,
+        "parameter_sweep_size": 150,
         "nb_time_steps": 50,
         "nb_parameters": 4,
         "l_bounds": [-0.7, 0.0, -0.7, 0.0],
         "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi"],
         "seed": 1234,
-        "simulation_timeout": 60,
+        "simulation_timeout": 100,
         "crashes_before_redraw": 1,
         "verbosity": 2
     },
     "sampler_type": "breed",
     "active_sampling_config": {
         "breed_limit": 20,
-        "nn_updates": 25,
+        "nn_updates": 50,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
             "sigma": [0.05, 0.2, 0.05, 0.2],
             "start": 1.0,
-            "end": 0.8,
-            "breakpoint": 5,
+            "end": 0.9,
+            "breakpoint": 3,
             "sliding_window_size": 20,
             "use_true_mixing": true,
-            "log_extra": true
+            "log_extra": false
         }
     },
     "dl_config": {
-        "validation_directory": "$APEBENCH_ROOT/experiments/across_pdes/diff_burgers/VALIDATION_OUT_1d_burgers/N_1600_gamma_500_delta_30/trajectories",
-        "valid_rollout": 99,
+        "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default/trajectories",
+        "valid_rollout": -1,
         "nb_batches_update": 50,
-        "batch_size": 64, 
-        "per_server_watermark": 3000,
-        "buffer_size": 5000,
+        "batch_size": 8,
+        "valid_batch_size": 8,
+        "per_server_watermark": 400,
+        "buffer_size": 500,
         "buffer": "Reservoir",
         "convert_log_to_df": true
     },
@@ -54,7 +57,7 @@
         "scheduler": "openmpi",
         "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
-        "job_limit": 7,
+        "job_limit": 8,
         "server_timeout": 600,
         "timer_delay": 2,
         "fault_tolerance": false,
@@ -73,6 +76,8 @@
     "server_config": {
         "preprocessing_commands": [
 	    // "export JAX_PLATFORMS=cpu"
+        "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.85"
+        //"export XLA_PYTHON_CLIENT_PREALLOCATE=False"
         ]
     }
 }
