@@ -19,33 +19,34 @@ def denormalize():
     pass
 
 
-def get_grads_stats(grads):
+# def get_grads_stats(grads):
 
-    grads_flat, _ = jax.tree_util.tree_flatten(eqx.filter(grads, eqx.is_array))
-    flat_grads = [g.flatten() for g in grads_flat]
-    grads_concat = jnp.concatenate(flat_grads)
-    total_norm = 0.0
-    for g in flat_grads:
-        total_norm += jnp.linalg.norm(g, ord=2) ** 2
-    total_norm = jnp.sqrt(total_norm)
-    mean = jnp.mean(grads_concat)
-    variance = jnp.var(grads_concat)
+#     grads_flat, _ = jax.tree_util.tree_flatten(eqx.filter(grads, eqx.is_array))
+#     flat_grads = [g.flatten() for g in grads_flat]
+#     grads_concat = jnp.concatenate(flat_grads)
+#     total_norm = 0.0
+#     for g in flat_grads:
+#         total_norm += jnp.linalg.norm(g, ord=2) ** 2
+#     total_norm = jnp.sqrt(total_norm)
+#     mean = jnp.mean(grads_concat)
+#     variance = jnp.var(grads_concat)
 
-    return {
-        "l2-norm": total_norm.item(),
-        "mean": mean.item(),
-        "var": variance.item()
-    }
+#     return {
+#         "l2-norm": total_norm.item(),
+#         "mean": mean.item(),
+#         "var": variance.item()
+#     }
 
+def init_optimizer_state(optimizer, model):
+    return optimizer.init(eqx.filter(model, eqx.is_array))
+    
 
-def loss_fn(model, x, y, is_valid=False):
+def loss_fn(model, x, y):
     y_pred = jax.vmap(model)(x)
     mse_per_sample = jax.vmap(
         ex.metrics.MSE
     )(y_pred, y)
     batch_mse = jnp.mean(mse_per_sample)
-    if is_valid:
-        return batch_mse, mse_per_sample, y_pred
     return batch_mse, mse_per_sample
 
 
@@ -69,10 +70,9 @@ def rollout_loss_fn(model, x, n=5):
     return jnp.mean(mse_per_traj), mse_per_traj, y_pred
 
 
-@eqx.filter_jit
-def update_fn(model, optimizer, x, y, opt_state=None):
-    if opt_state is None:
-        opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
+@eqx.filter_jit(donate='all')
+def update_fn(model, optimizer, x, y, opt_state):
+
     eval_grad = eqx.filter_value_and_grad(
         loss_fn,
         has_aux=True
@@ -84,6 +84,5 @@ def update_fn(model, optimizer, x, y, opt_state=None):
         new_model,
         new_state,
         loss,
-        loss_per_sample,
-        grads
+        loss_per_sample
     )
