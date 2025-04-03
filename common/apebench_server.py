@@ -7,6 +7,7 @@ from typing_extensions import override
 import numpy as np
 import jax.numpy as jnp
 import pdequinox as pdeqx
+import exponax as ex
 
 from melissa.server.offline_server import OfflineServer  # type: ignore
 from melissa.server.deep_learning import active_sampling  # type: ignore
