@@ -71,13 +71,16 @@ class SupSineWave(SineWave):
             num_points,
             sampled_ic_config
         )
-        # ic_config "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;true;true"
+        # ic_config "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;....;<ampk>;<phsk>;true;true"
         config_parts = self.sampled_ic_config.split(";")
+        amplitudes = tuple([float(amp) for amp in config_parts[1:-2:2]])
+        phases = tuple([float(phs) for phs in config_parts[2:-2:2]])
+        wavenumbers = tuple(range(1, len(amplitudes) + 1))
         self.ic_maker = ex.ic.SineWaves1d(
             domain_extent=self.domain_extent,
-            amplitudes=(float(config_parts[1]), float(config_parts[3])),
-            wavenumbers=(1, 2),
-            phases=(float(config_parts[2]), float(config_parts[4])),
+            amplitudes=amplitudes,
+            wavenumbers=wavenumbers,
+            phases=phases,
             std_one=config_parts[-2].lower() == "true",
             max_one=config_parts[-1].lower() == "true",
         )
