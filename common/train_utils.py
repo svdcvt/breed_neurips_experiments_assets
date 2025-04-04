@@ -41,13 +41,13 @@ def init_optimizer_state(optimizer, model):
     return optimizer.init(eqx.filter(model, eqx.is_array))
     
 
-def loss_fn(model, x, y):
-    y_pred = jax.vmap(model)(x)
-    mse_per_sample = jax.vmap(
-        ex.metrics.MSE
-    )(y_pred, y)
-    batch_mse = jnp.mean(mse_per_sample)
-    return batch_mse, mse_per_sample
+# def loss_fn(model, x, y):
+#     y_pred = jax.vmap(model)(x)
+#     mse_per_sample = jax.vmap(
+#         ex.metrics.MSE
+#     )(y_pred, y)
+#     batch_mse = jnp.mean(mse_per_sample)
+#     return batch_mse, mse_per_sample
 
 
 def rollout_loss_fn(model, x, n=5):
@@ -70,19 +70,39 @@ def rollout_loss_fn(model, x, n=5):
     return jnp.mean(mse_per_traj), mse_per_traj, y_pred
 
 
+# @eqx.filter_jit(donate='all')
+# def update_fn(model, optimizer, x, y, opt_state):
+
+#     eval_grad = eqx.filter_value_and_grad(
+#         loss_fn,
+#         has_aux=True
+#     )
+#     (loss, loss_per_sample), grads = eval_grad(model, x, y)
+#     updates, new_state = optimizer.update(grads, opt_state, model)
+#     new_model = eqx.apply_updates(model, updates)
+#     return (
+#         new_model,
+#         new_state,
+#         loss,
+#         loss_per_sample
+# )
+
+
+def loss_fn(model, x, y):
+    y_pred = jax.vmap(model)(x)
+    return jnp.mean(jnp.square(y_pred - y))
+
+
 @eqx.filter_jit(donate='all')
 def update_fn(model, optimizer, x, y, opt_state):
+    loss, grads = eqx.filter_value_and_grad(
+            loss_fn
+        )(model, x, y)
 
-    eval_grad = eqx.filter_value_and_grad(
-        loss_fn,
-        has_aux=True
-    )
-    (loss, loss_per_sample), grads = eval_grad(model, x, y)
     updates, new_state = optimizer.update(grads, opt_state, model)
     new_model = eqx.apply_updates(model, updates)
     return (
         new_model,
         new_state,
-        loss,
-        loss_per_sample
+        loss
     )
