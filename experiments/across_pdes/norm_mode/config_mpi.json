@@ -1,13 +1,13 @@
 {
     "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_burgers_1d_breed_Res_26_4_highres_fast_B8_buf500",
+    // "output_dir": "STUDY_OUT_",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
             "scenario_name": "diff_burgers",
             "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;true",
-            "network_config": "Res;26;4;relu",
+            "network_config": "Res;13;2;relu",
             "num_points": 1600000,
             "diffusion_gamma": 184320000.0,
             "convection_delta": -24000
@@ -16,7 +16,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 150,
+        "parameter_sweep_size": 200,
         "nb_time_steps": 50,
         "nb_parameters": 4,
         "l_bounds": [-0.7, 0.0, -0.7, 0.0],
@@ -26,10 +26,10 @@
         "crashes_before_redraw": 1,
         "verbosity": 2
     },
-    "sampler_type": "breed",
+    "sampler_type": "uniform",
     "active_sampling_config": {
         "breed_limit": 20,
-        "nn_updates": 50,
+        "nn_updates": 5000000,
         "non_resampling_threshold": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
@@ -45,20 +45,22 @@
     "dl_config": {
         "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default/trajectories",
         "valid_rollout": -1,
-        "nb_batches_update": 50,
-        "batch_size": 8,
-        "valid_batch_size": 8,
-        "per_server_watermark": 400,
-        "buffer_size": 500,
+        "nb_batches_update": 30,
+        "batch_size": 32,
+        "valid_batch_size": 32,
+        "per_server_watermark": 150,
+        "buffer_size": 200,
         "buffer": "Reservoir",
-        "convert_log_to_df": true
+        "convert_log_to_df": false,
+        "clear_freq": [10000000, 10000000],
+        "mem_monitoring_off": true
     },
     "launcher_config": {
         "scheduler": "openmpi",
         "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
-        "job_limit": 8,
-        "server_timeout": 600,
+        "job_limit": 10,
+        "server_timeout": 1200,
         "timer_delay": 2,
         "fault_tolerance": false,
         "verbosity": 2,
@@ -75,9 +77,7 @@
     },
     "server_config": {
         "preprocessing_commands": [
-	    // "export JAX_PLATFORMS=cpu"
         "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.85"
-        //"export XLA_PYTHON_CLIENT_PREALLOCATE=False"
         ]
     }
 }

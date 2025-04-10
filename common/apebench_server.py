@@ -32,16 +32,19 @@ logging.getLogger("jax").setLevel(logging.ERROR)
 logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
 
-def debug_print(a, name):
-    if isinstance(a, jnp.ndarray):
-        logger.info(f"LOOK! {name}: device: {a.device} type: {type(a)} dtype: {a.dtype} nbytes: {a.nbytes/1024/1024:.2f} MB | ptr: {a.unsafe_buffer_pointer()}")
-    elif isinstance(a, np.ndarray):
-        logger.info(f"LOOK! {name}: type: {type(a)} dtype: {a.dtype} nbytes: {a.nbytes/1024/1024:.2f} MB | ptr: {a.data} and {np.byte_bounds(a)[0]}")
-    else:
-        logger.info(f"LOOK! {name}: type: {type(a)}")
+# def debug_print(a, name):
+#     if isinstance(a, jnp.ndarray):
+#         logger.info(f"LOOK! {name}: device: {a.device} type: {type(a)} dtype: {a.dtype} nbytes: {a.nbytes/1024/1024:.2f} MB | ptr: {a.unsafe_buffer_pointer()}")
+#     elif isinstance(a, np.ndarray):
+#         logger.info(f"LOOK! {name}: type: {type(a)} dtype: {a.dtype} nbytes: {a.nbytes/1024/1024:.2f} MB | ptr: {a.data} and {np.byte_bounds(a)[0]}")
+#     else:
+#         logger.info(f"LOOK! {name}: type: {type(a)}")
 
 class CommonInitMixIn:
     def __init__(self, config_dict, is_valid=False):
+        self.memory_tracer = dutils.MemoryTracer(off=config_dict['dl_config'].get('mem_monitoring_off', False))
+        self.memory_tracer.take_snapshot("At init")
+
         super().__init__(config_dict)
         study_options = config_dict["study_options"]
         scenario_config = study_options["scenario_config"]
@@ -100,7 +103,7 @@ class APEBenchServer(CommonInitMixIn,
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict)
 
-        self.memory_monitor = dutils.MemoryMonitor()
+        self.memory_monitor = dutils.MemoryMonitor()#off=self.dl_config.get('mem_monitoring_off', False))
         self.memory_monitor.print_stats("At init", with_timestamp=True)
 
         self.valid_rollout = self.dl_config.get("valid_rollout", -1)
@@ -108,13 +111,16 @@ class APEBenchServer(CommonInitMixIn,
         self.mesh_shape = self.scenario.get_shape()
         logger.info(f"Mesh shape: {self.mesh_shape}")
         logger.info("Validation configuration starts loading.")
-        self.valid_dataset, self.valid_parameters = vutils.load_validation_dataset(
+        self.valid_dataset, self.valid_parameters, self.valid_dataloader, self.valid_dataloader_rollout = vutils.load_validation_dataset(
             validation_dir=self.dl_config.get("validation_directory"),
             nb_time_steps=101, # TODO this is number of time steps for validation not for training
-            output_shape=self.mesh_shape,
+            batch_size=self.valid_batch_size,
+            rollout_size=self.valid_rollout
         )
-        self.valid_dataloader = vutils.batch_generator(self.valid_dataset, self.valid_batch_size)
+
         self.opt_state = None
+        self.clear_freq_tr = self.dl_config.get("clear_freq", (50, 1))[0]
+        self.clear_freq_val = self.dl_config.get("clear_freq", (50, 1))[1]
 
         # # 1D u_prev, u_next, and u_next_hat are plotted on the same plot
         # self.plot_1d = self.scenario.num_spatial_dims == 1
@@ -166,10 +172,10 @@ class APEBenchServer(CommonInitMixIn,
     
     @override
     def process_simulation_data(self, msg, config_dict):
-        self.memory_monitor.print_stats("Before processing simulation data {msg.simulation_id}-{msg.time_step}", with_timestamp=True)
+        self.memory_monitor.print_stats(f"Before processing simulation data {msg.simulation_id}-{msg.time_step}", with_timestamp=True)
         u_prev = msg.data["preposition"].reshape(*self.mesh_shape)
         u_next = msg.data["position"].reshape(*self.mesh_shape)
-        self.memory_monitor.print_stats("After processing")
+        self.memory_monitor.print_stats("After processing", with_timestamp=True)
         # try:
         #     debug_print(u_prev, f"u_prev j_t={msg.simulation_id}, {msg.time_step} from msg")
         # except Exception as e:
@@ -202,33 +208,29 @@ class APEBenchServer(CommonInitMixIn,
         # logger.info(f"Training batch {batch_idx} started.")
         self.memory_monitor.print_stats("Start of training step", batch_idx, with_timestamp=True)
         u_prev, u_next, sim_ids_list, time_step_list = batch
-        self.memory_monitor.print_stats("Processing batch from reservoir-batcher")
 
         device = jax.devices("gpu")[0]
         with jax.default_device(device):
             u_prev = jnp.asarray(u_prev)
             u_next = jnp.asarray(u_next)
-            self.memory_monitor.print_stats("Loaded batch to GPU")
             self.model, self.opt_state, batch_loss = tutils.update_fn(
                 self.model, self.optimizer, u_prev, u_next, self.opt_state
             )
-            # (self.model, self.opt_state, batch_loss, loss_per_sample) = tutils.update_fn(
-            #     self.model, self.optimizer, u_prev, u_next, self.opt_state
-            #     )
-            
             batch_loss.block_until_ready()
-            self.memory_monitor.print_stats("After training step on GPU")
         
         self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_idx)
         # logger.info(f"Batch {batch_idx} Loss: {batch_loss.item():.2e}")
 
-        if batch_idx % 50 == 0:
-            self.memory_monitor.print_stats("Before clearing cache", batch_idx, with_timestamp=True)
+        if (batch_idx + 1) % self.clear_freq_tr == 0:
+            self.memory_monitor.print_stats("Before clearing cache in training", batch_idx, with_timestamp=True)
             jax.clear_caches()
-            self.memory_monitor.print_stats("After clearing cache")
+            self.memory_monitor.print_stats("After clearing cache", with_timestamp=True)
             gc.collect()
-            self.memory_monitor.print_stats(f"After garbage collection")
-
+            self.memory_monitor.print_stats(f"After garbage collection in training", with_timestamp=True)
+        
+        if (batch_idx + 1) % 100 == 0:
+            self.memory_tracer.take_snapshot(f"At batch {batch_idx}")
+        
 
         # if jnp.isnan(batch_loss):
         #     logger.error(f"LOSSES = {loss_per_sample}")
@@ -269,12 +271,9 @@ class APEBenchServer(CommonInitMixIn,
     @override
     def on_validation_start(self, batch_idx):
         """Keep track of some variables for validation loop."""
-        # self.loss_by_sim = {}
         # self.losses_per_sample = []
         self.batch_val_losses = []
-        self.memory_monitor.print_stats("Before validation start")
-        # TODO shitcoded generator because it was empty after previous validation lol
-        self.valid_dataloader = vutils.batch_generator(self.valid_dataset, self.valid_batch_size)
+        self.memory_monitor.print_stats("Before validation start", batch_idx, with_timestamp=True)
         logger.info("Validation started.")
 
     @override
@@ -282,24 +281,19 @@ class APEBenchServer(CommonInitMixIn,
         """This loss is across all trajectories and their time steps.
         t[i] -> t[i + 1] 
         """
-        # logger.info(f"Validation batch {valid_batch_idx} started.")
-        u_prev_indices, u_next_indices = batch
         with jax.default_device(jax.devices("gpu")[0]):
-            u_step = jnp.asarray(self.valid_dataset[u_prev_indices]).reshape(-1, *self.mesh_shape)
+            u_step = jnp.asarray(self.valid_dataset[batch[0]])
 
-            # self.memory_monitor.print_stats(f"After loading validation batch {valid_batch_idx}")
+            self.memory_monitor.print_stats(f"After loading val batch {valid_batch_idx}", with_timestamp=True)
             u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
 
             u_step.block_until_ready()
-            # self.memory_monitor.print_stats(f"After passing to NN")
+            self.memory_monitor.print_stats(f"After passing to NN", with_timestamp=True)
 
-            u_next = jnp.asarray(self.valid_dataset[u_next_indices]).reshape(-1, *self.mesh_shape)
+            u_next = jnp.asarray(self.valid_dataset[batch[1]])
             batch_loss = jnp.mean((u_step - u_next) ** 2)
-            # try:
-            #     debug_print(u_next, "u_next from cpu valid dataset")
-            # except Exception as e:
-            #     pass
-            # self.memory_monitor.print_stats(f"After loading validation batch {valid_batch_idx} on cpu")
+            self.batch_val_losses.append(batch_loss.item())
+            
             # loss_per_sample = jnp.mean((u_step - u_next) ** 2, axis=tuple(range(1, len(self.mesh_shape) + 1)))
             # batch_loss = jnp.mean(loss_per_sample)
             # if batch_loss is np.nan:
@@ -309,16 +303,22 @@ class APEBenchServer(CommonInitMixIn,
             # self.losses_per_sample.append(
                 # loss_per_sample.ravel()
             # )
-            self.batch_val_losses.append(batch_loss.item())
-        # self.memory_monitor.print_stats(f"After validation batch {valid_batch_idx}")
-        
+            del u_step
+            del u_next
+            del batch_loss
+        self.memory_monitor.print_stats(f"After val batch {valid_batch_idx}", with_timestamp=True)
         
     @override
     def on_validation_end(self, batch_idx):
         logger.info("Validation ended.")
         self.memory_monitor.print_stats("End of validation", batch_idx, with_timestamp=True)
+
         avg_val_loss = np.nanmean(self.batch_val_losses) if len(self.batch_val_losses) > 0 else np.nan
         self.tb_logger.log_scalar("Loss_valid/mean", avg_val_loss, batch_idx)
+
+        gc.collect()
+        self.memory_monitor.print_stats(f"After garbage collection at end of validation", batch_idx, with_timestamp=True)
+
 
         # self.losses_per_sample = np.hstack(self.losses_per_sample)
         # logger.info(f"Nan count: {np.isnan(self.losses_per_sample).sum()}")
@@ -356,11 +356,8 @@ class APEBenchServer(CommonInitMixIn,
         #     self.run_validation_rollout(batch_idx, save_intermediate=True)
         #     self.memory_monitor.print_stats(f"After validation rollout")
         
-        jax.clear_caches()
-        gc.collect()
-        self.memory_monitor.print_stats(f"After clearing cache in validation batch {batch_idx}")
-
-
+        
+        
     # def run_validation_rollout(self, batch_idx, save_intermediate=False):
     #     """This loss is across all trajectories rolled out from their respective ICs.
     #     t[0] -> t[1] -> ... t[rollout]

@@ -2,6 +2,7 @@ import logging
 import os
 import os.path as osp
 import numpy as np
+import time
 
 
 logger = logging.getLogger("melissa")
@@ -18,38 +19,22 @@ class AutoregressiveTrajectoryDataset:
 
     def __init__(
         self,
-        data_dir: str,
-        output_shape: tuple[int, ...],
+        data_path: str,
         nb_time_steps: int
     ) -> None:
-        self.nb_time_steps: int = nb_time_steps
-
-        file_list: list[str] = [
-            f for f in sorted(os.listdir(data_dir))
-            if f.endswith(".npy") and "sim" in f
-        ][:15]
-        self.num_samples: int = len(file_list)
-        self.num_pairs: int = self.num_samples * (self.nb_time_steps - 1)
-
-        # reading dataset to CPU memory
-        self.validation_dataset: np.ndarray = np.empty(
-            (len(file_list) * self.nb_time_steps, *output_shape), dtype=np.float32
-        )
-        logger.info(f"Loading validation dataset from {data_dir}...")
-        for i, f in enumerate(file_list):
-            self.validation_dataset[i * self.nb_time_steps: (i + 1) * self.nb_time_steps] = \
-                np.load(
-                osp.join(data_dir, f),
-                mmap_mode="r"
-                )
-            logger.info(f"Loaded {f}.")
-        logger.info("Validation dataset loaded.")
+        self.nb_time_steps = nb_time_steps
+        logger.info(f"Loading validation dataset from {data_path}...")
+        self.validation_dataset = np.load(data_path)#, mmap_mode="r")
+        
+        self.num_samples = self.validation_dataset.shape[0] // self.nb_time_steps
+        self.num_pairs = self.num_samples * (self.nb_time_steps - 1)
+        logger.info(f"Validation dataset loaded {self.num_samples} {self.num_pairs} {self.validation_dataset.shape}.")
 
     def __len__(self):
-        return len(self.validation_dataset)
+        return self.validation_dataset.shape[0]
     
-    def __getitem__(self, idx: int | list | slice) -> np.ndarray:
-        return self.validation_dataset[idx]
+    def __getitem__(self, idx):
+        return np.array(self.validation_dataset[idx], dtype=np.float32, copy=False)
 
     def get_pairs(self, batch_l: int, batch_r: int) -> tuple[list[int], list[int], list[int]]:
         '''
@@ -107,42 +92,64 @@ class AutoregressiveTrajectoryDataset:
         for r in range(1, rollout_size + 1):
             rollout_idx.append([i + r for i in ic_idx])
         return ic_idx, rollout_idx
-
-def batch_generator(dataset, batch_size, rollout_size=-1):
-    if dataset is None:
-        return None
-    n = dataset.num_pairs if rollout_size == -1 else dataset.num_samples
-    for i in range(0, n, batch_size):
-        j = min(n, i + batch_size)
+    
+    def _prepare_batch_generator(self, batch_size: int, rollout_size: int):
+        self.batched_indices = []
         if rollout_size == -1:
-            yield dataset.get_pairs(i, j)
-        else:
-            yield dataset.get_rollout(i, j, rollout_size)
+            self.batched_indices_rollout = []
+        n = self.num_pairs if rollout_size == -1 else self.num_samples
+        for i in range(0, n, batch_size):
+            j = min(n, i + batch_size)
+            self.batched_indices.append(self.get_pairs(i, j))
+            if rollout_size != -1:
+                self.batched_indices_rollout.append(self.get_rollout(i, j, rollout_size))
+
+    def batch_generator(self, rollout_size: int = -1):
+        if rollout_size != -1: # want rollout batches
+            return self.batched_indices_rollout
+        else: # want 1to1 batches
+            return self.batched_indices
 
 
 def load_validation_dataset(validation_dir,
                             nb_time_steps,
-                            output_shape):
+                            batch_size,
+                            rollout_size=-1):
     if validation_dir is None:
         return None, None
 
     valid_dataset = None
     valid_parameters = None
+    valid_dataloader = None
+    valid_dataloader_rollout = None
     validation_dir = osp.expandvars(validation_dir)
+    # traj_path = osp.join(validation_dir, "all_trajectories.npy")
+    traj_path = osp.join(validation_dir, "15_trajectories.npy")
 
-    if osp.exists(validation_dir):
+    if osp.exists(traj_path):
         valid_dataset = AutoregressiveTrajectoryDataset(
-            data_dir=validation_dir,
-            output_shape=output_shape,
+            data_path=traj_path,
             nb_time_steps=nb_time_steps
         )
+        valid_dataset._prepare_batch_generator(
+            batch_size=batch_size,
+            rollout_size=rollout_size
+        )
+        
+        valid_dataloader = valid_dataset.batch_generator()
+        logger.info(f"{valid_dataset.batched_indices}")
+        logger.info(f"{valid_dataset.batched_indices[0]}")
+        logger.info(f"{valid_dataset.batched_indices[0][0]}")
+        logger.info(f"{valid_dataset.batched_indices[0][1]}")
+        if rollout_size != -1:
+            valid_dataloader_rollout = valid_dataset.batch_generator(rollout_size=rollout_size)
 
-        params_path = osp.join(validation_dir, "input_parameters.npy")
+        params_path = osp.join(validation_dir, "all_parameters.npy")
         if osp.exists(params_path):
             valid_parameters = np.load(params_path)
         logger.info("Validation set loaded.")
     else:
         logger.warning("Validation set not found. "
                        "Please set validation_directory in configuration.")
-
-    return valid_dataset, valid_parameters
+    
+    return valid_dataset, valid_parameters, valid_dataloader, valid_dataloader_rollout
