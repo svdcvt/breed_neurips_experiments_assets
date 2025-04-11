@@ -1,5 +1,4 @@
 import jax
-import exponax  # noqa
 import apebench
 import ic_generation as icgen
 

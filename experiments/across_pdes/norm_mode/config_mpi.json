@@ -24,6 +24,7 @@
         "seed": 1234,
         "simulation_timeout": 100,
         "crashes_before_redraw": 1,
+        // "zmq_hwm": 10,
         "verbosity": 2
     },
     "sampler_type": "uniform",
@@ -45,15 +46,15 @@
     "dl_config": {
         "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default/trajectories",
         "valid_rollout": -1,
+        "valid_batch_size": 32,
+        "valid_nb_time_steps": 100,
         "nb_batches_update": 30,
         "batch_size": 32,
-        "valid_batch_size": 32,
         "per_server_watermark": 150,
         "buffer_size": 200,
         "buffer": "Reservoir",
-        "convert_log_to_df": false,
-        "clear_freq": [10000000, 10000000],
-        "mem_monitoring_off": true
+
+        "convert_log_to_df": false
     },
     "launcher_config": {
         "scheduler": "openmpi",
@@ -79,5 +80,14 @@
         "preprocessing_commands": [
         "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.85"
         ]
+    },
+    "monitoring_config": {
+        "log_memory": true,
+        "plotting_config": {
+            "plot_rows" : 5
+        },
+        "checkpoint_model_best": true,
+        "checkpoint_model_last": true,
+        "checkpoint_model_each_step": false
     }
 }

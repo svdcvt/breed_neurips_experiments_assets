@@ -8,10 +8,10 @@ import numpy as np
 import os
 
 class MemoryMonitor:
-    def __init__(self, path='.', off=False):
+    def __init__(self, path='.', on=False):
         self.process = psutil.Process()
         self.file = f"{path}/memory_stats.txt"
-        self.off = off
+        self.on = on
 
     def get_stats(self):
         # CPU Memory
@@ -47,7 +47,7 @@ class MemoryMonitor:
 
     def print_stats(self, text=None, iteration=None, with_timestamp=False):
         """Print current memory stats to the initialized file."""
-        if self.off:
+        if not self.on:
             return
         stats = self.get_stats()
         to_print = ''
@@ -74,10 +74,10 @@ class MemoryMonitor:
 class MemoryTracer:
     """Tracks both general Python and NumPy-specific memory allocations."""
     
-    def __init__(self, log_dir='.', off=False):
+    def __init__(self, log_dir='.', on=False):
         self.log_file = os.path.join(log_dir, "memory_trace.log")
-        self.off = off
-        if not off:
+        self.on = on
+        if self.on:
             # Create NumPy domain filter
             self.np_domain = np.lib.tracemalloc_domain
             self.np_filter = tracemalloc.DomainFilter(
@@ -109,7 +109,7 @@ class MemoryTracer:
 
     def take_snapshot(self, label=""):
         """Takes a snapshot of current memory usage, both general and NumPy-specific."""
-        if self.off:
+        if not self.on:
             return
         snapshot = tracemalloc.take_snapshot()
         

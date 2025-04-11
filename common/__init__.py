@@ -1,6 +1,6 @@
 import scenarios
 import train_utils
-import valid_utils
+import common.dl_utils as dl_utils
 import plot_utils
 import ic_generation
 import sampler
@@ -14,9 +14,9 @@ from constants import (
 
 __all__ = [
     "scenarios",
-    "train_utils",
-    "valid_utils",
+    "dl_utils",
     "plot_utils",
+    "monitoring_utils",
     "ic_generation",
     "sampler",
     "APEBenchServer",
