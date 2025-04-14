@@ -172,13 +172,13 @@ class AutoregressiveTrajectoryDataset:
     
     def _prepare_batch_generator(self, batch_size: int, rollout_size: int):
         self.batched_indices = []
-        if rollout_size == -1:
-            self.batched_indices_rollout = []
-        n = self.num_pairs if rollout_size == -1 else self.num_samples
-        for i in range(0, n, batch_size):
-            j = min(n, i + batch_size)
+        for i in range(0, self.num_pairs, batch_size):
+            j = min(self.num_pairs, i + batch_size)
             self.batched_indices.append(self.get_pairs(i, j))
-            if rollout_size != -1:
+        if rollout_size != -1:
+            self.batched_indices_rollout = []
+            for i in range(0, self.num_samples, batch_size):
+                j = min(self.num_samples, i + batch_size)
                 self.batched_indices_rollout.append(self.get_rollout(i, j, rollout_size))
 
     def batch_generator(self, rollout_size: int = -1):

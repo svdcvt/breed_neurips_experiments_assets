@@ -82,10 +82,17 @@ class APEBenchServer(CommonInitMixIn,
 
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict)
-        # Setting monitoring config
         self.monitoring_config = config_dict.get("monitoring_config", dict())
-        self.memory_monitor = mutils.MemoryMonitor(on=self.monitoring_config.get("log_memory", False))
-        self.memory_monitor.print_stats("At init", with_timestamp=True)
+        self.__post_init__()
+
+    def __post_init__(self):
+        # Setting monitoring config
+        self.memory_monitor = mutils.MemoryMonitor(
+            mode=self.monitoring_config.get("log_memory", "off"),
+            tb_logger=None # self.tb_logger TODO
+        )
+        self.memory_monitor.log_stats("At init", iteration=0)
+        # self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
 
         # Setting validation data
         self.valid_rollout = self.dl_config.get("valid_rollout", -1)
@@ -114,7 +121,6 @@ class APEBenchServer(CommonInitMixIn,
         self.opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
         
         logger.info(f"TRAINING:00000: Model parameters count: {pdeqx.count_parameters(model)}")
-        self.memory_monitor.print_stats("After preparing training attributes", with_timestamp=True)
         
         return model, optimizer
     
@@ -126,7 +132,10 @@ class APEBenchServer(CommonInitMixIn,
     
     @override
     def on_train_start(self):
-        logger.info("TRAINING:00000: Training started.")
+        # self.__post_init__() #TODO shitcoded because for example tb_logger is not set in the constructor
+        self.memory_monitor.tb_logger = self.tb_logger
+        self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
+        logger.info("TRAINING:00000: Training will start as soon as watermark is met.")
 
     @override
     def training_step(self, batch, batch_idx):
@@ -139,7 +148,7 @@ class APEBenchServer(CommonInitMixIn,
                 self.model, self.optimizer, u_prev, u_next, self.opt_state
             )
         
-        self.memory_monitor.print_stats("Training step", batch_idx, with_timestamp=True)
+        self.memory_monitor.log_stats("Training step", iteration=batch_idx)
         
         self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_idx)
         if batch_idx % 50 == 0:
@@ -170,7 +179,7 @@ class APEBenchServer(CommonInitMixIn,
 
     @override
     def on_train_end(self):
-        if self.monitoring_config.get("checkpoint_last_model", False):
+        if self.monitoring_config.get("checkpoint_model_last", False):
             logger.info("Saving last model.")
             self.checkpoint_model(suffix="last")
         # fig = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
@@ -189,7 +198,7 @@ class APEBenchServer(CommonInitMixIn,
         """Keep track of some variables for validation loop."""
         self.losses_per_sample = []
         self.batch_val_losses = []
-        self.memory_monitor.print_stats("Before validation start", batch_idx, with_timestamp=True)
+        self.memory_monitor.log_stats("Before validation start", iteration=batch_idx)
         logger.info(f"TRAINING:{batch_idx:05d}: Validation started.")
 
     @override
@@ -210,107 +219,123 @@ class APEBenchServer(CommonInitMixIn,
         
         self.batch_val_losses.append(batch_loss.item())
         self.losses_per_sample.append(loss_per_sample.ravel())
-        self.memory_monitor.print_stats(f"After val batch {valid_batch_idx}", with_timestamp=True)
+        self.memory_monitor.log_stats(f"After val batch {valid_batch_idx}", iteration=batch_idx)
         
     @override
     def on_validation_end(self, batch_idx):
         avg_val_loss = np.nanmean(self.batch_val_losses) if len(self.batch_val_losses) > 0 else np.nan
         self.tb_logger.log_scalar("Loss_valid/mean", avg_val_loss, batch_idx)
 
-        self.memory_monitor.print_stats("End of validation", batch_idx, with_timestamp=True)
+        self.memory_monitor.log_stats("End of validation", iteration=batch_idx)
         logger.info(f"TRAINING:{batch_idx:05d}: Validation ended. Average loss: {avg_val_loss:.2e}")
 
         self.losses_per_sample = np.hstack(self.losses_per_sample)
 
         if len(self.losses_per_sample) > 0:
-            self.tb_logger.log_scalar("Loss_valid/max", 
-                                      np.nanmax(self.losses_per_sample),
-                                      batch_idx)
-            self.tb_logger.log_scalar("Loss_valid/min",
-                                      np.nanmin(self.losses_per_sample),
-                                      batch_idx)
-            self.tb_logger.log_scalar("Loss_valid/p90",
-                                      np.nanpercentile(self.losses_per_sample, 90),
-                                      batch_idx)
-            self.tb_logger.log_scalar("Loss_valid/p10",
-                                      np.nanpercentile(self.losses_per_sample, 10),
-                                      batch_idx)
+            self.tb_logger.log_scalars(
+                "Loss_valid_stats", 
+                {
+                    "max" : np.nanmax(self.losses_per_sample),
+                    "min" : np.nanmin(self.losses_per_sample),
+                    "std" : np.nanstd(self.losses_per_sample),
+                    "p90" : np.nanpercentile(self.losses_per_sample, 90),
+                    "p10" : np.nanpercentile(self.losses_per_sample, 10)
+                },
+                batch_idx
+            )
             
-        if self.monitoring_config.get("checkpoint_best_model", False):
+        if self.monitoring_config.get("checkpoint_model_best", False):
             if avg_val_loss < self.best_val_loss:
                 self.best_val_loss = avg_val_loss
                 logger.info(f"TRAINING:{batch_idx:05d}: Saving best model.")
                 self.checkpoint_model(batch_idx, suffix="best")
         
-        # if self.log_extra:
-        #     self.plot_loss_distributions['validation'].add_histogram_step(
-        #         self.losses_per_sample
-        #     )
-        #     self.tb_logger.log_figure(
-        #         "ValidationLossHistogram",
-        #         self.plot_loss_distributions['validation'].fig,
-        #         batch_idx,
-        #         close=False
-        #     )
-        
         # after running regular validation, run the rollout from ICs
+        if self.rank == 0 and self.valid_rollout > 1:
+            logger.info(f"TRAINING:{batch_idx:05d}: Running validation rollout n={self.valid_rollout}.")
+            start_val = time.time()
+            self.run_validation_rollout(batch_idx, memory_efficient=True)
+            logger.info(f"TRAINING:{batch_idx:05d}: Validation rollout took {time.time() - start_val:.2f} seconds.")
+            # self.validation_mesh_plot(batch_idx, valid_batch_idx, sim_ids_list, u_prev, u_next, u_next_hat)
+            self.memory_monitor.log_stats(f"After validation rollout", iteration=batch_idx)
+            # when we want to add plots
+            # predictions, rollout_loss = self.run_validation_rollout(batch_idx, memory_efficient=False)
+            # plot predictions, plot rollout_loss
 
-        # if self.rank == 0 and self.valid_rollout > 0:
-        #     logger.info("Running validation rollout.")
-        #     self.run_validation_rollout(batch_idx, save_intermediate=True)
-        #     self.memory_monitor.print_stats(f"After validation rollout")
+    def run_validation_rollout(self, batch_idx, memory_efficient=True):
+        """This loss is across all trajectories rolled out from their respective ICs.
+        t[0] -> t[1] -> ... t[rollout]
+        """
+        total = self.valid_dataset.num_samples
         
         
+        rollout_loss = 0.0
+        if self.valid_rollout > self.nb_time_steps:
+            rollout_known_loss = 0.0
+        # by batches
+        for ic_idx, rollout_idx in self.valid_dataloader_rollout:
+            u_step = jnp.asarray(self.valid_dataset[ic_idx])
+            # we can either use ex.rollout to get full trajectory (meaning, GPU memory should fit nb_time_steps * batch_size * mesh_shape * 2)
+            # or we can use the model to predict step by step, which is more memory efficient but maybe slower
+            if memory_efficient:
+                # def rollout_fn(u_step, roll_step):
+                #     """Predict the next step and calculate the loss.
+                #     Used for lax.scan and will give last predicted step and array of errors over the rollout"""
+                #     u_step = jax.vmap(self.model)(u_step)
+                #     err = jax.vmap(ex.metrics.nRMSE)(u_step, roll_step)
+                #     return u_step, err
+                # rollout_steps = jnp.asarray(self.valid_dataset[rollout_idx])
+                # u_step, rollout_loss_batch = jax.lax.scan(rollout_fn, u_step, rollout_steps)
+
+                # in the end, lax scan is maybe efficient for not having every prediction stored
+                # but we need to load the whole batch trajectory to gpu for loss calculation
+                # so it is not feasible
+                rollout_loss = 0.0
+                for r, roll_idx in enumerate(rollout_idx, start=1):
+                    u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
+                    u_next = jnp.asarray(self.valid_dataset[roll_idx])
+                    rollout_loss += jnp.sum(jax.vmap(ex.metrics.nRMSE)(u_step, u_next)).item()
+                    del u_next
+                    if self.valid_rollout > self.nb_time_steps and r == self.nb_time_steps:
+                        rollout_known_loss = rollout_loss
+            else:
+                trj_idx = np.vstack(rollout_idx).T
+                print(trj_idx.shape)
+                print(len(rollout_idx))
+                print(len(rollout_idx[0]))
+                trj_batch = jnp.asarray(self.valid_dataset[trj_idx])
+                u_step = jax.vmap(
+                    ex.rollout(self.model, self.valid_dataset.nb_time_steps)
+                )(u_step)
+                rollout_loss_batch = jax.vmap(jax.vmap(ex.metrics.nRMSE))(
+                    u_step, trj_batch
+                ) # (B, nb_time_steps)
+                rollout_loss += jnp.sum(rollout_loss_batch).item()
+                if self.valid_rollout > self.nb_time_steps:
+                    rollout_known_loss += jnp.sum(rollout_loss_batch[:,:self.nb_time_steps]).item()
+
+        self.tb_logger.log_scalar(
+            f"Loss_valid/rollout (n={self.valid_rollout}) nRMSE",
+            rollout_loss / total,
+            batch_idx
+        )
+        logger.info(
+            f"TRAINING:{batch_idx:05d}: Validation rollout loss: {rollout_loss / total:.2e}"
+        )
+        if self.valid_rollout > self.nb_time_steps:
+            self.tb_logger.log_scalar(
+                f"Loss_valid/rollout (n={self.nb_time_steps}) nRMSE",
+                rollout_known_loss / total,
+                batch_idx
+            )
+            logger.info(
+                f"TRAINING:{batch_idx:05d}: Validation known rollout loss: {rollout_known_loss / total:.2e}"
+            )
         
-    # def run_validation_rollout(self, batch_idx, save_intermediate=False):
-    #     """This loss is across all trajectories rolled out from their respective ICs.
-    #     t[0] -> t[1] -> ... t[rollout]
-    #     """
-    #     total = self.valid_dataset.num_samples
-    #     if save_intermediate:
-    #         rollout_losses = []
-    #         for b, (ic_idx, rollout_idx) in enumerate(dl_utils.batch_generator(self.valid_dataset, self.valid_batch_size, rollout_size=self.valid_rollout)):
-    #             u_step = jnp.asarray(self.valid_dataset[ic_idx]).reshape(-1, *self.mesh_shape)
-    #             batch_rollout_losses = []
-    #             for r, roll_idx in enumerate(rollout_idx):
-    #                 u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
-    #                 with jax.default_device(jax.devices("cpu")[0]):
-    #                     u_next = jnp.asarray(self.valid_dataset[roll_idx]).reshape(-1, *self.mesh_shape)
-    #                     batch_rollout_losses.append(jnp.mean((u_step - u_next) ** 2, axis=tuple(range(1, len(self.mesh_shape) + 1))).ravel())
-    #             rollout_losses.append(np.vstack(batch_rollout_losses).T)
-    #         rollout_losses = np.vstack(rollout_losses)
-    #         logger.info(f"Nan count: {np.isnan(rollout_losses).sum()}")
-    #         total_loss = np.nansum(rollout_losses[:,:self.valid_rollout])
-    #         logger.info(f"Total rollout loss: {total_loss:.2e}")
-    #         self.tb_logger.log_scalar(
-    #             f"Loss_valid/rollout (n={self.valid_rollout}) nRMSE",
-    #             (total_loss / total).item(),
-    #             batch_idx
-    #         )
-    #         if self.valid_rollout > self.nb_time_steps:
-    #             total_nb_loss = np.nansum(rollout_losses[:,:self.nb_time_steps])
-    #             self.tb_logger.log_scalar(
-    #                 f"Loss_valid/rollout (n={self.nb_time_steps}) nRMSE",
-    #                 (total_nb_loss / total).item(),
-    #                 batch_idx
-    #             )
-    #     else:
-    #         total_nrmse = 0.0
-    #         for ic_idx, rollout_idx in dl_utils.batch_generator(self.valid_dataset, self.valid_batch_size, rollout_size=self.valid_rollout):
-    #             ics = jnp.asarray(self.valid_dataset[ic_idx]).reshape(-1, *self.mesh_shape)
-    #             y_pred = jax.jit(jax.vmap(ex.rollout(self.model, self.valid_rollout, include_init=False)), donate_argnums=0)(ics)
-    #             with jax.default_device(jax.devices("cpu")[0]):
-    #                 rolled_y = jnp.asarray(self.valid_dataset[rollout_idx[-1]]).reshape(-1, *self.mesh_shape)
-    #                 total_nrmse += jnp.sum(jax.vmap(
-    #                     ex.metrics.nRMSE,
-    #                     in_axes=1 # not sure for 2D
-    #                 )(y_pred, rolled_y))
-            
-    #         self.tb_logger.log_scalar(
-    #             f"Loss_valid/rollout (n={self.valid_rollout}) nRMSE",
-    #             (total_nrmse / total).item(),
-    #         )
-    
+        # we can return the predictions and the errors
+        # but we don't need them for now
+        # return u_step, rollout_loss_batch
+        
     # def validation_mesh_plot(self, batch_idx, v_batch_idx, sim_ids, u_prev, u_next, u_next_hat):
     #     # only the first batch
     #     if v_batch_idx == 1:
