@@ -60,12 +60,12 @@ def get_default_parser():
 
 
 def run_online(stepper, u, flattened_mesh_size, sampled_ic_config):
-    # if np.random.rand() < 0.01:
-    #     print('SUPPOSE TO HAVE A PLOT at', os.getcwd())
-    #     to_plot = True
-    #     traj = np.empty((NB_STEPS+1, flattened_mesh_size))
-    # else:
-    #     to_plot = False
+    if np.random.rand() < 0.01:
+        print('SUPPOSE TO HAVE A PLOT at', os.getcwd())
+        to_plot = True
+        traj = np.empty((NB_STEPS+1, flattened_mesh_size))
+    else:
+        to_plot = False
     comm = MPI.COMM_WORLD
 
     melissa_init(FIELD_PREV_POSITION, flattened_mesh_size, comm)
@@ -78,8 +78,8 @@ def run_online(stepper, u, flattened_mesh_size, sampled_ic_config):
             file=sys.stderr
         )
         os._exit(1)
-    # if to_plot:
-    #     traj[0] = np.asarray(ic).flatten()
+    if to_plot:
+        traj[0] = np.asarray(u).flatten()
     st = time.time()
     for t in range(NB_STEPS):
         melissa_send(
@@ -103,21 +103,21 @@ def run_online(stepper, u, flattened_mesh_size, sampled_ic_config):
         )
         print(f"t={t} solved")
         # u = u_next.copy()
-        # if to_plot:
-        #     traj[t+1] = np.asarray(u_next).flatten()
+        if to_plot:
+            traj[t+1] = np.asarray(u).flatten()
 
     melissa_finalize()
     print(f"Total time taken {time.time() - st:.2f} sec.")
-    # if to_plot:
-    #     fig, ax = plt.subplots(1, 2, figsize=(9,4))
-    #     ax[0].plot(traj[0], label='IC')
-    #     ax[0].plot(traj[-1], label='Last')
-    #     ax[0].legend()
-    #     ax[0].set_ylim(-1.4, 1.4)
-    #     ax[1].imshow(traj.T, cmap='coolwarm', vmin=-1.4, vmax=1.4, aspect='auto')
-    #     pars = [float(s) for s in sampled_ic_config.split(';')[1:5]]
+    if to_plot:
+        fig, ax = plt.subplots(1, 2, figsize=(9,4))
+        ax[0].plot(traj[0], label='IC')
+        ax[0].plot(traj[-1], label='Last')
+        ax[0].legend()
+        ax[0].set_ylim(-1.4, 1.4)
+        ax[1].imshow(traj.T, cmap='coolwarm', vmin=-1.4, vmax=1.4, aspect='auto')
+        pars = [float(s) for s in sampled_ic_config.split(';')[1:5]]
 
-    #     fig.savefig(f'difA_{abs(pars[0]-pars[2])/1.4:.2f}_difPh_{abs((abs(pars[1]-pars[3])/(2*np.pi))-0.5):.2f}.png')
+        fig.savefig(f'difA_{abs(pars[0]-pars[2])/1.4:.2f}_difPh_{abs((abs(pars[1]-pars[3])/(2*np.pi))-0.5):.2f}.png')
 
 
 def run_offline(stepper, ic):

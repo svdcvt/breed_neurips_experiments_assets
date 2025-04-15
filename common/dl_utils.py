@@ -10,13 +10,16 @@ logger = logging.getLogger("melissa")
 
 def loss_fn(model, x, y):
     y_pred = jax.vmap(model)(x)
-    return jnp.mean(jnp.square(y_pred - y))
+    loss_per_sample = jnp.mean(jnp.square(y_pred - y), axis=(1, 2))
+    batch_loss = jnp.mean(loss_per_sample)
+    return batch_loss, loss_per_sample
 
 
 @eqx.filter_jit(donate='all')
 def update_fn(model, optimizer, x, y, opt_state):
-    loss, grads = eqx.filter_value_and_grad(
-            loss_fn
+    (loss, loss_per_sample), grads = eqx.filter_value_and_grad(
+            loss_fn,
+            has_aux=True
         )(model, x, y)
 
     updates, new_state = optimizer.update(grads, opt_state, model)
@@ -24,7 +27,8 @@ def update_fn(model, optimizer, x, y, opt_state):
     return (
         new_model,
         new_state,
-        loss
+        loss,
+        loss_per_sample
     )
 
 # def get_grads_stats(grads):

@@ -144,7 +144,7 @@ class APEBenchServer(CommonInitMixIn,
         with jax.default_device(jax.devices("gpu")[0]):
             u_prev = jnp.asarray(u_prev)
             u_next = jnp.asarray(u_next)
-            self.model, self.opt_state, batch_loss = dl_utils.update_fn(
+            self.model, self.opt_state, batch_loss, loss_per_sample = dl_utils.update_fn(
                 self.model, self.optimizer, u_prev, u_next, self.opt_state
             )
         
@@ -156,17 +156,17 @@ class APEBenchServer(CommonInitMixIn,
 
         if not np.isfinite(batch_loss.item()):
             logger.error(f"NaN or Inf loss encountered at batch {batch_idx}.")
-            # logger.error(f"LOSSES = {loss_per_sample}")
+            logger.error(f"LOSSES = {loss_per_sample}")
             logger.error(f"SIM IDS = {sim_ids_list}")
             logger.error(f"TIME STEPS = {time_step_list}")
             time.sleep(5)
             os.exit(1)
 
 
-        # if self.is_breed_study:
-        #     delta_losses = \
-        #         active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
-        #     active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
+        if self.is_breed_study:
+            delta_losses = \
+                active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
+            active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
 
         
         if self.monitoring_config.get("checkpoint_model_each_step", False):
@@ -316,20 +316,20 @@ class APEBenchServer(CommonInitMixIn,
 
         self.tb_logger.log_scalar(
             f"Loss_valid/rollout (n={self.valid_rollout}) nRMSE",
-            rollout_loss / total,
+            rollout_loss / total / self.valid_rollout,
             batch_idx
         )
         logger.info(
-            f"TRAINING:{batch_idx:05d}: Validation rollout loss: {rollout_loss / total:.2e}"
+            f"TRAINING:{batch_idx:05d}: Validation rollout loss: {rollout_loss / total / self.valid_rollout:.2e}"
         )
         if self.valid_rollout > self.nb_time_steps:
             self.tb_logger.log_scalar(
                 f"Loss_valid/rollout (n={self.nb_time_steps}) nRMSE",
-                rollout_known_loss / total,
+                rollout_known_loss / total / self.nb_time_steps,
                 batch_idx
             )
             logger.info(
-                f"TRAINING:{batch_idx:05d}: Validation known rollout loss: {rollout_known_loss / total:.2e}"
+                f"TRAINING:{batch_idx:05d}: Validation known rollout loss: {rollout_known_loss / total / self.nb_time_steps:.2e}"
             )
         
         # we can return the predictions and the errors
