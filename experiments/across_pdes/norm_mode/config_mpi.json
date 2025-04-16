@@ -1,7 +1,7 @@
 {
     "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_resnet_bigger_rollout100_5waves_breed",
+    "output_dir": "STUDY_OUT_resnet_13_4_rollout_100_waves_5_breed",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
@@ -16,7 +16,7 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 1000,
+        "parameter_sweep_size": 150,
         "nb_time_steps": 50,
         "nb_parameters": 10,
         "l_bounds": [-0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0],
@@ -24,10 +24,10 @@
         "seed": 1234,
         "simulation_timeout": 100,
         "crashes_before_redraw": 1,
-        "zmq_hwm": 40,
+        "zmq_hwm": 10,
         "verbosity": 2
     },
-    "sampler_type": "breed",
+    "sampler_type": "uniform",
     "active_sampling_config": {
         "breed_limit": 20,
         "nn_updates": 100,
@@ -44,14 +44,14 @@
         }
     },
     "dl_config": {
-        "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default/trajectories",
+        "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default_5waves/trajectories",
         "valid_rollout": 100,
         "valid_batch_size": 28,
         "valid_nb_time_steps": 100,
         "nb_batches_update": 50,
         "batch_size": 28,
-        "per_server_watermark": 4000,
-        "buffer_size": 5000,
+        "per_server_watermark": 1500,
+        "buffer_size": 2000,
         "buffer": "Reservoir",
         "convert_log_to_df": false
     },
@@ -59,7 +59,7 @@
         "scheduler": "openmpi",
         "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
-        "job_limit": 40,
+        "job_limit": 16,
         "server_timeout": 1200,
         "timer_delay": 2,
         "fault_tolerance": false,

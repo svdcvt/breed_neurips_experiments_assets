@@ -1,4 +1,5 @@
 import logging
+import os
 import os.path as osp
 import numpy as np
 
@@ -204,8 +205,17 @@ def load_validation_dataset(validation_dir,
     valid_dataloader = None
     valid_dataloader_rollout = None
     validation_dir = osp.expandvars(validation_dir)
-    # traj_path = osp.join(validation_dir, "all_trajectories.npy")
-    traj_path = osp.join(validation_dir, "15_trajectories.npy")
+    # Find trajectory and parameter files
+    files = os.listdir(validation_dir)
+    traj_path = None
+    params_path = None
+    for file in files:
+        if "traj" in file.lower() and file.endswith(".npy"):
+            traj_path = osp.join(validation_dir, file)
+            logger.info(f"Found trajectory file: {traj_path}")
+        elif "param" in file.lower() and file.endswith(".npy"):
+            params_path = osp.join(validation_dir, file)
+            logger.info(f"Found parameter file: {params_path}")
 
     if osp.exists(traj_path):
         valid_dataset = AutoregressiveTrajectoryDataset(
@@ -221,7 +231,6 @@ def load_validation_dataset(validation_dir,
         if rollout_size != -1:
             valid_dataloader_rollout = valid_dataset.batch_generator(rollout_size=rollout_size)
 
-        params_path = osp.join(validation_dir, "all_parameters.npy")
         if osp.exists(params_path):
             valid_parameters = np.load(params_path)
         logger.info(f"Validation set loaded. Size: {valid_dataset.num_samples} trajectories, {valid_dataset.num_pairs} samples, {len(valid_dataloader)} batches.")

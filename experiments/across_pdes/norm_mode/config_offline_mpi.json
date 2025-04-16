@@ -1,11 +1,11 @@
 {
     "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchOfflineServer",
-    "output_dir": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default",
+    "output_dir": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default_5waves",
     "study_options": {
         "scenario_config": {
             "scenario_name": "diff_burgers",
-            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;false",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;<amp3>;<phs3>;<amp4>;<phs4>;<amp5>;<phs5>;false;true",
             "network_config": "MLP;64;3;relu",
             "num_points": 1600000,
             "diffusion_gamma": 184320000.0,
@@ -15,11 +15,11 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 75,
+        "parameter_sweep_size": 50,
         "nb_time_steps": 100,
-        "nb_parameters": 4,
-        "l_bounds": [-0.7, 0.0, -0.7, 0.0],
-        "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi"],
+        "nb_parameters": 10,
+        "l_bounds": [-0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0],
+        "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi"],
         "seed": 54321,
         "simulation_timeout": 100,
         "crashes_before_redraw": 1,
@@ -29,7 +29,7 @@
         "scheduler": "openmpi",
         "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe", "--timeout", "1000"],
-        "job_limit": 10,
+        "job_limit": 16,
         "server_timeout": 600,
         "timer_delay": 2,
         "fault_tolerance": false,
