@@ -136,6 +136,17 @@ class APEBenchServer(CommonInitMixIn,
         self.memory_monitor.tb_logger = self.tb_logger
         self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
         logger.info("TRAINING:00000: Training will start as soon as watermark is met.")
+        
+        if (
+            self.rank == 0
+            and self._valid_dataloader is not None
+        ):
+            logger.info(f"Rank {self.rank} Running validation at batch_idx={0}")
+            self._on_validation_start(0)
+            for v_batch_idx, v_batch in enumerate(self._valid_dataloader):
+                self.validation_step(v_batch, v_batch_idx, 0)
+            self._on_validation_end(0)
+
 
     @override
     def training_step(self, batch, batch_idx):

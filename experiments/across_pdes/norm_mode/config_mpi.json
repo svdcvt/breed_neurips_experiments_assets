@@ -1,7 +1,7 @@
 {
     "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    "output_dir": "STUDY_OUT_resnet_13_4_rollout_100_waves_5_breed",
+    "output_dir": "STUDY_OUT_resnet_13_4_rollout_100_waves_5_uniform",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
@@ -16,29 +16,29 @@
             "preposition",
             "position"
         ],
-        "parameter_sweep_size": 150,
+        "parameter_sweep_size": 300,
         "nb_time_steps": 50,
         "nb_parameters": 10,
         "l_bounds": [-0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0],
         "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi"],
         "seed": 1234,
-        "simulation_timeout": 100,
+        "simulation_timeout": 1000,
         "crashes_before_redraw": 1,
         "zmq_hwm": 10,
         "verbosity": 2
     },
-    "sampler_type": "uniform",
+    "sampler_type": "breed",
     "active_sampling_config": {
-        "breed_limit": 20,
-        "nn_updates": 100,
-        "non_resampling_threshold": 10,
+        "breed_limit": 50,
+        "nn_updates": 30,
+        "non_resampling_threshold": 1,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
             "sigma": [0.05, 0.2, 0.05, 0.2, 0.05, 0.2, 0.05, 0.2, 0.05, 0.2],
-            "start": 1.0,
-            "end": 0.9,
+            "start": 0.0,
+            "end": 0.0,
             "breakpoint": 3,
-            "sliding_window_size": 100,
+            "sliding_window_size": 50,
             "use_true_mixing": true,
             "log_extra": false
         }
@@ -60,7 +60,7 @@
         "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "10800"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
         "job_limit": 16,
-        "server_timeout": 1200,
+        "server_timeout": 10800,
         "timer_delay": 2,
         "fault_tolerance": false,
         "verbosity": 2,
@@ -81,7 +81,7 @@
         ]
     },
     "monitoring_config": {
-        "log_memory": "tb", // options are "file", "tb", "off" or "file+tb"
+        "log_memory": "tb",
         "plotting_config": {
             "plot_rows" : 5
         },
