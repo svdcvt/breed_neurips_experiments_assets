@@ -32,6 +32,7 @@
         "breed_limit": 50,
         "nn_updates": 30,
         "non_resampling_threshold": 1,
+        "delta_loss_min_nb_time_steps": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
             "sigma": [0.05, 0.2, 0.05, 0.2, 0.05, 0.2, 0.05, 0.2, 0.05, 0.2],

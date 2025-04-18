@@ -120,7 +120,7 @@ def run_online(stepper, u, flattened_mesh_size, sampled_ic_config):
         fig.savefig(f'difA_{abs(pars[0]-pars[2])/1.4:.2f}_difPh_{abs((abs(pars[1]-pars[3])/(2*np.pi))-0.5):.2f}.png')
 
 
-def run_offline(stepper, ic):
+def run_offline(stepper, ic, sampled_ic_config):
     rollout_stepper = ex.rollout(
         stepper,
         NB_STEPS,
@@ -137,6 +137,27 @@ def run_offline(stepper, ic):
     os.makedirs(VALIDATION_DIR, exist_ok=True)
     jnp.save(f"{VALIDATION_DIR}/sim{sim_id}.npy", trajectory)
     print(f"Total time taken {time.time() - st:.2f} sec.")
+    print("Trajectory shape:", trajectory.shape)
+    print("Trajectory min, max, mean:", trajectory.min(), trajectory.max(), trajectory.mean())
+    print("Trajectory std:", trajectory.std())
+    
+    if np.random.rand() < 1:
+        traj = np.array(trajectory).squeeze(1)
+        fig, ax = plt.subplots(1, 2, figsize=(9,4))
+        ax[0].plot(trajectory[0].ravel(), label='IC')
+        ax[0].plot(trajectory[1].ravel(), label='IC+1')
+        ax[0].plot(trajectory[-2].ravel(), label='Last-1')
+        ax[0].plot(trajectory[-1].ravel(), label='Last')
+        ax[0].legend()
+        # ax[0].set_ylim(-2.5, 2.5)
+        im = ax[1].imshow(traj.T, cmap='coolwarm', aspect='auto')#, vmin=-2.5, vmax=2.5)
+        fig.colorbar(im, ax=ax[1])
+        ax[1].set_title('Trajectory')
+        ax[1].set_xlabel('Time step')
+        ax[1].set_ylabel('Mesh points')
+        pars = [float(s) for s in sampled_ic_config.split(';')[1:5]]
+
+        fig.savefig(f'difA_{abs(pars[0]-pars[2])/1.4:.2f}_difPh_{abs((abs(pars[1]-pars[3])/(2*np.pi))-0.5):.2f}.png', dpi=200)
 
 
 def run_solver(offline, sampled_ic_config):
@@ -146,33 +167,35 @@ def run_solver(offline, sampled_ic_config):
     )
     stepper = scenario.get_stepper()
     print(stepper)
-    # try:
-    #     print("difficulty gamma and delta from object")
-    #     print(stepper.linear_difficulties)
-    #     print(stepper.convection_difficulty)
-    # except:
-    #     pass
-    # print('normalized_linear_coefficients and normalized_convection_scale')
-    # print(stepper.normalized_linear_coefficients)
-    # print(stepper.normalized_convection_scale)
-    # print("difficulty gamma and delta")
-    # difficulty_linear_coefficients = [
-    #     alpha * stepper.num_points**j * 2 ** (j - 1) * 1
-    #     for j, alpha in enumerate(stepper.normalized_linear_coefficients)
-    # ]
-    # difficulty_convection_scale = stepper.normalized_convection_scale * (
-    #     1.0 * stepper.num_points * 1
-    # )
-    # print(difficulty_linear_coefficients)
-    # print(difficulty_convection_scale)
-
+    try:
+        print("difficulty gamma and delta from object")
+        print(stepper.linear_difficulties)
+        print(stepper.convection_difficulty)
+    except:
+        pass
+    try:
+        print('normalized_linear_coefficients and normalized_convection_scale')
+        print(stepper.normalized_linear_coefficients)
+        print(stepper.normalized_convection_scale)
+        print("difficulty gamma and delta")
+        difficulty_linear_coefficients = [
+            alpha * stepper.num_points**j * 2 ** (j - 1) * 1
+            for j, alpha in enumerate(stepper.normalized_linear_coefficients)
+        ]
+        difficulty_convection_scale = stepper.normalized_convection_scale * (
+            1.0 * stepper.num_points * 1
+        )
+        print(difficulty_linear_coefficients)
+        print(difficulty_convection_scale)
+    except:
+        pass
     data_shape = scenario.get_shape()
     flattened_mesh_size = np.prod(data_shape)
     input_fn_config = SCENARIO_CONFIG.get("input_fn_config", {})
     ic = scenario.get_ic_mesh(**input_fn_config)
 
     if offline:
-        run_offline(stepper, ic)
+        run_offline(stepper, ic, sampled_ic_config)
     else:
         run_online(stepper, ic, flattened_mesh_size, sampled_ic_config)
 

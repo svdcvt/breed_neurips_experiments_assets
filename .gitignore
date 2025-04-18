@@ -3,6 +3,7 @@ build
 MELISSA
 STUDY_OUT*
 VALIDATION_OUT*
+OFFLINE_*
 *.npy
 *.err
 *.out
@@ -17,3 +18,4 @@ benchmark/*.zip
 .vscode/settings.json
 melissa-202*
 **/debug/**
+
