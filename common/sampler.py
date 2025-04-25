@@ -56,18 +56,16 @@ class BaseCustomSamplerMixIn(RandomUniformSamplerMixIn, HaltonSamplerMixIn):
 
     @override
     def process_drawn(self, parameters):
+        if self.is_valid and not os.path.exists(VALIDATION_INPUT_PARAM_FILE):
+            jnp.save(
+                VALIDATION_INPUT_PARAM_FILE,
+                self.parameters
+            )
         sampled_ic_config = self.make_sampled_ic_config(parameters)
         return [
             f'--ic-config="{sampled_ic_config}"'
         ]
 
-    def finalize(self, exit_:int):
-        if self.is_valid:
-            jnp.save(
-                VALIDATION_INPUT_PARAM_FILE,
-                self.parameters
-            )
-        super().finalize(exit_)
 
 
 #################################################################

@@ -18,6 +18,7 @@ from melissa.server.deep_learning import active_sampling
 from melissa.server.deep_learning.active_sampling.active_sampling_server import (
     ExperimentalDeepMelissaActiveSamplingServer
 )
+from dl_utils import merge_npy_files
 
 import dl_utils
 import plot_utils as putils
@@ -38,10 +39,6 @@ class CommonInitMixIn:
             if self.world_rank == self.breed_rank:
                 time.sleep(5)
             a = jnp.zeros((1, 1, 1))
-            mm = [M.memory_stats()['bytes_limit']/1024/1024/1024 for M in jax.local_devices()]
-            pid = os.getpid()
-            logger.info(f"PID {pid} Rank {self.rank} initialized jax, memlimit {mm} GB")
-            print(f"PID {pid} Rank {self.rank} initialized jax, memlimit {mm} GB")
 
         # Reading the config file
         study_options = config_dict["study_options"]
@@ -110,10 +107,31 @@ class CommonInitMixIn:
             dtype=np.float32
         )
 
+        self.experimental_monitoring = False
+
 
 class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict, is_valid=True)
+    
+    # @override
+    # def _server_finalize(self, exit_: int = 0) -> None:
+    #     logger.info("Going to merge trajectories now.")
+    #     merge_npy_files("$CWD/trajectories/")
+    #     logger.info("Merging trajectories done.")
+
+    #     super()._server_finalize(exit_)
+    
+    # @override
+    # def _all_done(self) -> bool:
+    #     logger.info((f"Rank {self.rank}>> calls all done."
+    #     f"\nNb groups finished: {self.nb_finished_groups} / {self.nb_groups}"
+    #     f"\nIs_receiving: {self._is_receiving}"
+    #     f"\nGroups: {self._groups}"
+    #     f"\nFinished groups: {self.finished_groups}"
+    #     f"\nNB Submitted groups: {self.nb_submitted_groups}"))
+        
+    #     super()._all_done()
 
 
 class APEBenchServer(CommonInitMixIn,

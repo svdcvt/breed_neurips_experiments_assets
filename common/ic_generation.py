@@ -47,7 +47,7 @@ class SineWave(BaseICMaker):
             wavenumbers=(1,),
             phases=(float(config_parts[2]),),
             std_one=config_parts[-2].lower() == "true",
-            max_one=config_parts[-1].lower() == "true",
+            max_one=False #config_parts[-1].lower() == "true",
         )
 
     def __call__(self, **extra_args):
@@ -82,9 +82,28 @@ class SupSineWave(SineWave):
             wavenumbers=wavenumbers,
             phases=phases,
             std_one=config_parts[-2].lower() == "true",
-            max_one=config_parts[-1].lower() == "true",
+            max_one=False #config_parts[-1].lower() == "true",
         )
+        # !!! INFO we assume that amplitudes are abs-maximum 1 !!!
+        is_max_one = config_parts[-1].lower() == "true"
+        if is_max_one:
+            print(
+                "WARNING: amplitudes are assumed to be abs-maximum 1, "
+                "normalisation is applied as IC / number of parameters"
+            )
+        self.normalise = len(amplitudes) if is_max_one else None
 
+    def __call__(self, **extra_args):
+        grid = ex.make_grid(
+            self.num_spatial_dims,
+            self.domain_extent,
+            self.num_points,
+            **extra_args
+        )
+        ic_mesh = self.ic_maker(grid)
+        if self.normalise is not None:
+            ic_mesh = ic_mesh / self.normalise
+        return ic_mesh
 
 class SineCosWaves2D(BaseICMaker):
     def __init__(self,

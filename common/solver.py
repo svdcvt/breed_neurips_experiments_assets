@@ -12,8 +12,9 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from matplotlib.colors import CenteredNorm
+from matplotlib.colors import CenteredNorm, Normalize
 from matplotlib.gridspec import GridSpec
+from matplotlib.cm import ScalarMappable
 
 from melissa_api import (  # type: ignore
     melissa_init,
@@ -134,44 +135,110 @@ def run_offline(stepper, ic, sampled_ic_config):
     print("Trajectory min, max, mean:", trajectory.min(), trajectory.max(), trajectory.mean())
     print("Trajectory std:", trajectory.std())
     
-    if np.random.rand() < 0.1:
+    if np.random.rand() < 0.15:
         traj = np.array(trajectory).squeeze(1)
 
+        ymax = 2.1
+
         fig = plt.figure(layout="constrained", figsize=(15,9))
-        gs = GridSpec(3, 5, figure=fig)
+        gs = GridSpec(3, 7, figure=fig)
         ax0 = fig.add_subplot(gs[0, :3])
-        ax1 = fig.add_subplot(gs[0, 3:])
-        ax2 = fig.add_subplot(gs[1:, :])
+        ax1 = fig.add_subplot(gs[0, 3:-2])
+        ax2 = fig.add_subplot(gs[1:, :-2])
+        ax3 = fig.add_subplot(gs[0, -2:])
+        ax4 = fig.add_subplot(gs[1, -2:])
+        ax5 = fig.add_subplot(gs[2, -2:])
         ax = [ax0, ax1, ax2]
         
-        # fig, ax = plt.subplots(1, 3, )
         ic_pars = [f'{float(x):.3f}' for x in sampled_ic_config.split(';')[1:-2]]
 
-        fig.suptitle('Amps:' + ', '.join(ic_pars[::2]) + '\nPhs:' + ', '.join(ic_pars[1::2]), fontsize=10)
+        fig.suptitle('Amps:  ' + ', '.join(ic_pars[::2]) + '\nPhs:  ' + ', '.join(ic_pars[1::2]), fontsize=10)
         ax[0].plot(traj[0], linewidth=1, label='IC', color='darkgreen')
         ax[0].plot(traj[-1], linewidth=1,label='Last', color='darkred')
         ax[0].plot(traj[1], linewidth=1, linestyle='--',label='IC+1', color='limegreen')
         ax[0].plot(traj[-2], linewidth=1,linestyle='--',label='Last-1', color='salmon')
         ax[0].legend(loc='upper right', fontsize=6)
+        ax[0].set_ylim(-ymax, ymax)
+        ax[0].set_title('Initial and last timestep')
+        ax[0].set_xlabel('Mesh points')
+        ax[0].set_ylabel('Value')
+        ax[0].set_xticks([])
         
-        im = ax[1].imshow(traj.T, cmap='coolwarm', norm=CenteredNorm(), aspect='auto')
-        fig.colorbar(im, ax=ax[1])
+        im = ax[1].imshow(traj.T, cmap='coolwarm', norm=CenteredNorm(halfrange=ymax), aspect='auto')
+        fig.colorbar(
+            im, ax=ax[1], pad=0.01, extendrect=False, extendfrac=0.01, extend='both',
+        )
         ax[1].set_title('Trajectory')
         ax[1].set_xlabel('Time step')
         ax[1].set_ylabel('Mesh points')
+        ax[1].set_yticks([])
         cmap = plt.get_cmap('RdYlGn_r')
-        for i in range(traj.shape[0])[::10]:
-            ax[2].plot(traj[i],c=cmap(i/100), linewidth=0.5 if i % 100 else 1.5, alpha=0.7)
+        for i in np.arange(0, traj.shape[0], 2):
+            ax[2].plot(traj[i], c=cmap(i/traj.shape[0]), linewidth=0.5 if i % 100 else 1.5, alpha=0.7)
         ax[2].axis('off')
+        ax[2].set_title('Trajectory over time')
+        ax[2].set_xlabel('Mesh points')
+        ax[2].set_xticks([])
+        ax[2].set_ylabel('Value')
+        cax = ax[2].inset_axes([0.99, 0.025, 0.01, 0.95])
+        fig.colorbar(
+                ScalarMappable(norm=Normalize(vmin=0, vmax=100), cmap=cmap),
+                cax=cax, label='Timestep', aspect=90, anchor=(0.0,0.0)
+            )
 
-        trajectory_std = np.std(traj, axis=-1).mean()
+        trajectory_std_intime = np.std(traj, axis=-1) # 100
+        trajectory_mean_intime = np.mean(traj, axis=-1) # 100
+        trajectory_std_inspace = np.std(traj, axis=0) # 800k
+        trajectory_mean_inspace = np.mean(traj, axis=0) # 800k
+        trjectory_difference = (traj[1:] - traj[:-1]) # 99 x 800k
+        trajectory_diff_mean = np.mean(trjectory_difference, axis=-1) # 99
+        trajectory_diff_std = np.std(trjectory_difference, axis=-1) # 99
+
+        ax3.plot(trajectory_mean_intime, color='orange')
+        ax3.fill_between(
+            np.arange(trajectory_mean_intime.shape[0]),
+            trajectory_mean_intime - trajectory_std_intime,
+            trajectory_mean_intime + trajectory_std_intime,
+            color='orange',
+            alpha=0.2)
+        ax3.set_title('Trajectory mean+-std over time')
+        ax3.set_xlabel('Time step')
+        ax3.set_ylabel('Value')
+        ax3.set_ylim(-0.8, 0.8)
+
+        ax4.set_title('Trajectory mean+-std over mesh points')
+        ax4.plot(trajectory_mean_inspace, color='blue')
+        ax4.fill_between(
+            np.arange(trajectory_mean_inspace.shape[0]),
+            trajectory_mean_inspace - trajectory_std_inspace,
+            trajectory_mean_inspace + trajectory_std_inspace,
+            color='blue',
+            alpha=0.2)
+        ax4.set_xlabel('Mesh points')
+        ax4.set_xticks([])
+        ax4.set_ylabel('Value')
+        ax4.set_ylim(-ymax*0.9, ymax*0.9)
+        
+        ax5.set_title('Mesh difference mean+-std over time')
+        ax5.plot(trajectory_diff_mean, color='purple')
+        ax5.fill_between(
+            np.arange(trajectory_diff_mean.shape[0]),
+            trajectory_diff_mean - trajectory_diff_std,
+            trajectory_diff_mean + trajectory_diff_std,
+            color='purple',
+            alpha=0.2)
+        ax5.set_xlabel('Time step')
+        ax5.set_ylabel('Value')
+        ax5.set_ylim(-0.15, 0.15)
+
         max_abs = np.max(np.abs(traj))
+        diff_std = trajectory_diff_std.std()
 
         plot_dir = os.path.join(VALIDATION_DIR, 'plots')
         os.makedirs(plot_dir, exist_ok=True)
-        fig.savefig(f'{plot_dir}/traj_std_{trajectory_std:3.1e}_maxabs_{max_abs:3.1e}_id_{sim_id}.png', dpi=200)
+        fig.savefig(f'{plot_dir}/traj_diffstd_{diff_std:3.1e}_maxabs_{max_abs:3.1e}_id_{sim_id}.png', dpi=200)
         plt.close(fig)
-        print("FINISHED!")
+    print("FINISHED!")
 
 
 def run_solver(offline, sampled_ic_config):
