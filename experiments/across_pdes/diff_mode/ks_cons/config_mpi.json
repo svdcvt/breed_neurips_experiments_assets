@@ -1,18 +1,22 @@
 {
     "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchServer",
-    // "output_dir": "STUDY_OUT_resnet_13_4_rollout_100_waves_5_uniform",
+    "output_dir": "STUDY_OUT_resnet_13_4_uniform",
     "ignore_client_death": true,
     "study_options": {
         "scenario_config": {
             "scenario_name": "diff_burgers",
-            // "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;true",
-            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;<amp3>;<phs3>;<amp4>;<phs4>;<amp5>;<phs5>;false;true",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;false;true",
             "network_config": "Res;13;4;relu",
             "optim_config": "adam;warmup_cosine;1e-3;1e-4;0.99",
-            "num_points": 1600000,
-            "diffusion_gamma": 184320000.0,
-            "convection_delta": -24000
+            "num_points": 800000,
+            "diffusion_gamma": -5.0e+7,
+            // -2 * 5000 ^ 2
+            "hyp_diffusion_gamma": -1.0e+16,
+            // -16 * 5000 ^ 4  
+            "convection_delta": -5000.0
+            // -1 * 5000
+
         },
         "field_names": [
             "preposition",
@@ -20,56 +24,58 @@
         ],
         "parameter_sweep_size": 300,
         "nb_time_steps": 50,
-        // "nb_parameters": 4,
-        // "l_bounds": [-0.7, 0.0, -0.7, 0.0],
-        // "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi"],
-        "nb_parameters": 10,
-        "l_bounds": [-0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0, -0.7, 0.0],
-        "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi", 0.7, "2 * np.pi"],
+        "nb_parameters": 4,
+        "l_bounds": [-0.7, 0.0, -0.7, 0.0],
+        "u_bounds": [0.7, "2 * np.pi", 0.7, "2 * np.pi"],
         "seed": 1234,
-        "simulation_timeout": 1000,
+        "simulation_timeout": 60,
         "crashes_before_redraw": 1,
-        "zmq_hwm": 10,
+        "zmq_hwm": 180,
         "verbosity": 2
     },
     "active_sampling_config": {
-        "breed_limit": 50,
+        // each X batches resampling is triggered
         "nn_updates": 30,
+        // the threshold for the first resampling
+        "min_nb_finished_simulations": 20,
+        // the threshold for bein a parent
+        "delta_loss_min_nb_time_steps": 20,
+        // when to stop resampling
         "non_resampling_threshold": 1,
-        "delta_loss_min_nb_time_steps": 10,
         "breed_params": {
             "non_breed_sampling_strategy": "random",
-            // "sigma": [0.05, 0.2, 0.05, 0.2],
-            "sigma": [0.07, 0.315, 0.07, 0.315, 0.07, 0.315, 0.07, 0.315, 0.07, 0.315],
-            "start": 1.0,
-            "end": 0.8,
+            "sigma": [0.05, 0.2, 0.05, 0.2],
+            // if start and end are 0 it is uniform
+            "start": 0.0,
+            "end": 0.0,
             "breakpoint": 3,
+            // number of parents (at most)
             "sliding_window_size": 50,
             "use_true_mixing": true,
             "log_extra": false
         }
     },
     "dl_config": {
-        "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default_5waves/trajectories",
-        "validation_file": "all_trajectories.npy",
-        // "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default/trajectories",
-        // "validation_file": "15_trajectories.npy",
+        // "validation_directory": "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/ks_cons_1d/800k_2waves_medium/trajectories",
+        // "validation_file": "all_trajectories.npy",
         "valid_rollout": 100,
-        "valid_batch_size": 28,
+        "valid_batch_size": 16,
         "valid_nb_time_steps": 100,
         "nb_batches_update": 50,
-        "batch_size": 28,
-        "per_server_watermark": 1500,
-        "buffer_size": 2000,
+        "batch_size": 16,
+        // 20 simulations
+        "per_server_watermark": 1000,
+        // ~25% of the sweep size
+        "buffer_size": 4000,
         "buffer": "Reservoir",
         "convert_log_to_df": false
     },
     "launcher_config": {
         "scheduler": "openmpi",
-        "scheduler_arg_server": ["-n", "2", "--oversubscribe", "--timeout", "10800"],
+        "scheduler_arg_server": ["-n", "2", "--oversubscribe", "--timeout", "2500"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
-        "job_limit": 16,
-        "server_timeout": 10800,
+        "job_limit": 20,
+        "server_timeout": 120,
         "timer_delay": 2,
         "fault_tolerance": false,
         "verbosity": 2,
@@ -86,8 +92,7 @@
     },
     "server_config": {
         "preprocessing_commands": [
-        // "export CUDA_VISIBLE_DEVICES=\"0\"",
-        "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.8"
+        "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.9"
         ]
     },
     "monitoring_config": {

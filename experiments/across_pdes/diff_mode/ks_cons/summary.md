@@ -23,3 +23,10 @@
 |$\alpha_4$|-3.4e-9| |
 |$\beta_1$|6.25e-3| |
 
+
+## Difficulty modee
+
+
+|Path|Level|Num waves|$\gamma_2$|$\gamma_4$|$\delta_1$|
+|---|---|---|---|---|---|
+|`ks_cons_1d/800k_2waves_medium`| Medium | 2|  -2 | -16 | -1 |

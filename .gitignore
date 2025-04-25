@@ -18,4 +18,6 @@ benchmark/*.zip
 .vscode/settings.json
 melissa-202*
 **/debug/**
+**.png
+**.csv
 
