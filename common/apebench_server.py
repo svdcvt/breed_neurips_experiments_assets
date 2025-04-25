@@ -34,6 +34,15 @@ logging.getLogger("matplotlib").setLevel(logging.ERROR)
 class CommonInitMixIn:
     def __init__(self, config_dict, is_valid=False):
         super().__init__(config_dict)
+        if not is_valid:
+            if self.world_rank == self.breed_rank:
+                time.sleep(5)
+            a = jnp.zeros((1, 1, 1))
+            mm = [M.memory_stats()['bytes_limit']/1024/1024/1024 for M in jax.local_devices()]
+            pid = os.getpid()
+            logger.info(f"PID {pid} Rank {self.rank} initialized jax, memlimit {mm} GB")
+            print(f"PID {pid} Rank {self.rank} initialized jax, memlimit {mm} GB")
+
         # Reading the config file
         study_options = config_dict["study_options"]
         scenario_config = study_options["scenario_config"]
@@ -43,20 +52,52 @@ class CommonInitMixIn:
                 l_bounds[i] = eval(l_bounds[i])
             if isinstance(u_bounds[i], str):
                 u_bounds[i] = eval(u_bounds[i])
+        
+        if not is_valid:
+            if "optim_config" not in scenario_config:
+                scenario_config["optim_config"] = "adam;warmup_cosine;1e-5;1e-3;0.05"
+            optim_config = scenario_config["optim_config"].split(";")
+            optim_name = optim_config[0]
+            expected_batches_min = int(
+                study_options["parameter_sweep_size"] * study_options["nb_time_steps"] / config_dict["dl_config"]["batch_size"]
+            )
+            num_training_steps = expected_batches_min * 2 # TODO this is very approximate!
+
+            scheduler_name = optim_config[1]
+            if scheduler_name == "warmup_cosine":
+                scheduler_start = float(optim_config[2])
+                scheduler_peak = float(optim_config[3])
+                scheduler_warmup = int(float(optim_config[4]) * expected_batches_min)
+                # 'adam;10_000;warmup_cosine;0.0;1e-3;2_000'
+                scenario_config["optim_config"] = (
+                    f"{optim_name};{num_training_steps};{scheduler_name};"
+                    f"{scheduler_start};{scheduler_peak};{scheduler_warmup}"
+                )
+            elif scheduler_name == "constant":
+                scheduler_start = float(optim_config[2])
+                scenario_config["optim_config"] = (
+                    f"{optim_name};{num_training_steps};{scheduler_name};"
+                    f"{scheduler_start}"
+                )
+            else:
+                logger.warning(
+                    f"Scheduler {scheduler_name} not recognized. "
+                    f"Using default warmup_cosine scheduler."
+                )
+                scenario_config["optim_config"] = (
+                    f"{optim_name};{num_training_steps};warmup_cosine;"
+                    f"1e-5;1e-3;{int(0.05 * expected_batches_min)}"
+                )
+
         # Setting configurations
         self.scenario = MelissaSpecificScenario(**scenario_config)
         self.mesh_shape = self.scenario.get_shape()
         # (B, 1, 160) -> (1, 2); (B, 1, 160, 160) -> (1, 2, 3)...
         self.mesh_axes = tuple(range(1, self.scenario.num_spatial_dims + 2)) 
-        sampler_type = config_dict.get("sampler_type", "uniform")
-        self.is_breed_study = sampler_type == "breed"
-        if self.is_breed_study:
-            self.breed_params = self.ac_config.get("breed_params", dict())
-        else:
-            self.breed_params = dict()
+        self.breed_params = config_dict.get('ac_config', dict()).get("breed_params", dict())
         self.sampler_t = get_sampler_class_type(
             ic_type=scenario_config["ic_config"].split(";")[0],
-            is_breed=self.is_breed_study
+            use_classic=is_valid
         )
         self.set_parameter_sampler(
             sampler_t=self.sampler_t,
@@ -68,8 +109,6 @@ class CommonInitMixIn:
             u_bounds=u_bounds,
             dtype=np.float32
         )
-        # is it needed? no
-        self.experimental_monitoring = False
 
 
 class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
@@ -82,6 +121,8 @@ class APEBenchServer(CommonInitMixIn,
 
     def __init__(self, config_dict):
         CommonInitMixIn.__init__(self, config_dict)
+        if self.world_rank == self.breed_rank:
+            return
         self.monitoring_config = config_dict.get("monitoring_config", dict())
         self.__post_init__()
 
@@ -99,7 +140,8 @@ class APEBenchServer(CommonInitMixIn,
         self.valid_batch_size = self.dl_config.get("valid_batch_size", 32)
         self.valid_nb_time_steps = self.dl_config.get("valid_nb_time_steps", self.nb_time_steps) + 1 # includes t=0
         self.valid_dataset, self.valid_parameters, self.valid_dataloader, self.valid_dataloader_rollout = dl_utils.load_validation_dataset(
-            validation_dir=self.dl_config.get("validation_directory"),
+            validation_dir=self.dl_config.get("validation_directory", None),
+            validation_file=self.dl_config.get("validation_file", None),
             nb_time_steps=self.valid_nb_time_steps,
             batch_size=self.valid_batch_size,
             rollout_size=self.valid_rollout
@@ -108,11 +150,23 @@ class APEBenchServer(CommonInitMixIn,
 
         # Setting plotting config
         self.plotting_config = self.monitoring_config.get("plotting_config", None)
-        if self.plotting_config is not None:
-            self.plot_dim = self.scenario.num_spatial_dims
-            nrows = self.plotting_config.get("plot_rows", 5)
-            self.plot_row_ids = np.linspace(0, self.valid_batch_size, num=nrows, dtype=int)
-            self.plot_tids = np.linspace(0, self.valid_nb_time_steps, num=nrows, dtype=int)
+        # if self.plotting_config is not None:
+        #     self.plot_dim = self.scenario.num_spatial_dims
+        #     nrows = self.plotting_config.get("plot_rows", 5)
+        #     self.plot_row_ids = np.linspace(0, self.valid_batch_size, num=nrows, dtype=int)
+        #     self.plot_tids = np.linspace(0, self.valid_nb_time_steps, num=nrows, dtype=int)
+    
+    def get_learning_rate(self):
+        _, scheduler = self.scenario.get_optimizer(with_lr_scheduler=True)
+        count = self.opt_state[0].count # get current step
+        lr = scheduler(count) # get learning rate from schedule
+        return lr.item()
+    
+    def get_breed_ratio(self, sim_id_list):
+        is_bred_list = []
+        for sim_id in sim_id_list:
+            is_bred_list.append(self._parameter_sampler.current_metadata_list[sim_id].is_bred)
+        return np.mean(is_bred_list)
 
     @override
     def prepare_training_attributes(self):
@@ -120,7 +174,11 @@ class APEBenchServer(CommonInitMixIn,
         optimizer = self.scenario.get_optimizer()
         self.opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
         
-        logger.info(f"TRAINING:00000: Model parameters count: {pdeqx.count_parameters(model)}")
+        logger.info(
+            f"TRAINING:00000:\nModel parameters count: {pdeqx.count_parameters(model)}"
+            f"\nOptimizer config: {self.scenario.scenario.optim_config}"
+            f"\nAPEBench scenario: {self.scenario.scenario}"
+        )
         
         return model, optimizer
     
@@ -132,8 +190,30 @@ class APEBenchServer(CommonInitMixIn,
     
     @override
     def on_train_start(self):
-        # self.__post_init__() #TODO shitcoded because for example tb_logger is not set in the constructor
-        self.memory_monitor.tb_logger = self.tb_logger
+        # TODO shitcoded because for example tb_logger is not set in the constructor
+        self.memory_monitor.set_tb_logger(self.tb_logger)
+        self.tb_logger_layout = {
+            "Loss": {
+            "Train_Val": ["Multiline", ["Loss/train", "Loss_valid/mean"]],
+            "Val_Mean_Min_Max": ["Margin", ["Loss_valid_stats/mean_mean", "Loss_valid_stats/min", "Loss_valid_stats/max"]],
+            "Val_Mean_Percentile_10_90": ["Margin", ["Loss_valid_stats/p50", "Loss_valid_stats/p10", "Loss_valid_stats/p90"]],
+            "Val_Mean_Percentile_25_75": ["Margin", ["Loss_valid_stats/p50", "Loss_valid_stats/p25", "Loss_valid_stats/p75"]],
+            "Val_Mean_pm_1std": ["Margin", ["Loss_valid_stats/mean_mean", "Loss_valid_stats/mean_mstd", "Loss_valid_stats/mean_pstd"]]
+            },
+            "Rollout": {
+                "Both": ["Multiline", [f"Loss_valid/rollout_longer_n{self.valid_rollout}_nRMSE", f"Loss_valid/rollout_seen_n{self.nb_time_steps}_nRMSE"]],
+                "Longer": ["Multiline", [f"Loss_valid/rollout_longer_n{self.valid_rollout}_nRMSE"]],
+                "Seen": ["Multiline", [f"Loss_valid/rollout_seen_n{self.nb_time_steps}_nRMSE"]]
+            },
+            "Other": {
+                "Breed_ratio": ["Multiline", ["Breed_ratio/batch"]],
+                "Learning_rate": ["Multiline", ["Learning_rate"]]
+            }
+        }
+        self.tb_logger_layout.update(self.memory_monitor.tb_logger_layout)
+        self.tb_logger.writer.add_custom_scalars(self.tb_logger_layout)
+        # TODO
+
         self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
         logger.info("TRAINING:00000: Training will start as soon as watermark is met.")
         
@@ -162,6 +242,13 @@ class APEBenchServer(CommonInitMixIn,
         self.memory_monitor.log_stats("Training step", iteration=batch_idx)
         
         self.tb_logger.log_scalar("Loss/train", batch_loss.item(), batch_idx)
+        self.tb_logger.log_scalar("Learning_rate", self.get_learning_rate(), batch_idx)
+        self.tb_logger.log_scalar("Breed_ratio/batch", self.get_breed_ratio(sim_ids_list), batch_idx)
+        
+        # TODO these should be logged always, not when log_extra==True :(
+        # self.tb_logger.log_scalar("Breed_ratio/R", self._parameter_sampler.R, batch_idx)
+        # self.tb_logger.log_scalar("Breed_iter", self._parameter_sampler.R_i, batch_idx)
+
         if batch_idx % 50 == 0:
             logger.info(f"TRAINING:{batch_idx:05d}: Batch loss: {batch_loss.item():.2e}")
 
@@ -173,12 +260,9 @@ class APEBenchServer(CommonInitMixIn,
             time.sleep(5)
             os.exit(1)
 
-
-        if self.is_breed_study:
-            delta_losses = \
-                active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
-            active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
-
+        delta_losses = \
+            active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
+        active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
         
         if self.monitoring_config.get("checkpoint_model_each_step", False):
             if not self.no_fault_tolerance:
@@ -241,20 +325,26 @@ class APEBenchServer(CommonInitMixIn,
         logger.info(f"TRAINING:{batch_idx:05d}: Validation ended. Average loss: {avg_val_loss:.2e}")
 
         self.losses_per_sample = np.hstack(self.losses_per_sample)
+        mean_tmp = np.nanmean(self.losses_per_sample)
+        std_tmp = np.nanstd(self.losses_per_sample)
 
         if len(self.losses_per_sample) > 0:
-            self.tb_logger.log_scalars(
-                "Loss_valid_stats", 
-                {
+            stats = {
                     "max" : np.nanmax(self.losses_per_sample),
                     "min" : np.nanmin(self.losses_per_sample),
-                    "std" : np.nanstd(self.losses_per_sample),
+                    "std" : std_tmp,
+                    "mean_pstd" : mean_tmp + std_tmp,
+                    "mean_mean" : mean_tmp,
+                    "mean_mstd" : max(max(mean_tmp - std_tmp, 0), max(mean_tmp - 0.5 * std_tmp, 0)), 
                     "p90" : np.nanpercentile(self.losses_per_sample, 90),
+                    "p75" : np.nanpercentile(self.losses_per_sample, 75),
+                    "p50" : np.nanpercentile(self.losses_per_sample, 50),
+                    "p25" : np.nanpercentile(self.losses_per_sample, 25),
                     "p10" : np.nanpercentile(self.losses_per_sample, 10)
-                },
-                batch_idx
-            )
-            
+                }
+            for key, val in stats.items():
+                self.tb_logger.log_scalar(f"Loss_valid_stats/{key}", val, batch_idx)
+                    
         if self.monitoring_config.get("checkpoint_model_best", False):
             if avg_val_loss < self.best_val_loss:
                 self.best_val_loss = avg_val_loss
@@ -326,7 +416,7 @@ class APEBenchServer(CommonInitMixIn,
                     rollout_known_loss += jnp.sum(rollout_loss_batch[:,:self.nb_time_steps]).item()
 
         self.tb_logger.log_scalar(
-            f"Loss_valid/rollout (n={self.valid_rollout}) nRMSE",
+            f"Loss_valid/rollout_longer_n{self.valid_rollout}_nRMSE",
             rollout_loss / total / self.valid_rollout,
             batch_idx
         )
@@ -335,7 +425,7 @@ class APEBenchServer(CommonInitMixIn,
         )
         if self.valid_rollout > self.nb_time_steps:
             self.tb_logger.log_scalar(
-                f"Loss_valid/rollout (n={self.nb_time_steps}) nRMSE",
+                f"Loss_valid/rollout_seen_n{self.nb_time_steps}_nRMSE",
                 rollout_known_loss / total / self.nb_time_steps,
                 batch_idx
             )

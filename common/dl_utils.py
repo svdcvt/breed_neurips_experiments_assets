@@ -194,11 +194,12 @@ class AutoregressiveTrajectoryDataset:
 
 
 def load_validation_dataset(validation_dir,
+                            validation_file,
                             nb_time_steps,
                             batch_size,
                             rollout_size=-1):
     if validation_dir is None:
-        return None, None
+        return None, None, None, None
 
     valid_dataset = None
     valid_parameters = None
@@ -207,13 +208,21 @@ def load_validation_dataset(validation_dir,
     validation_dir = osp.expandvars(validation_dir)
     # Find trajectory and parameter files
     files = os.listdir(validation_dir)
-    traj_path = None
+
+    if validation_file is not None:
+        traj_path = osp.join(validation_dir, validation_file)
+        if not osp.exists(traj_path):
+            logger.warning(f"Validation file {validation_file} not found in {validation_dir}.")
+            traj_path = None
+        else:
+            logger.info(f"Found trajectory file: {traj_path}")
+    
     params_path = None
     for file in files:
-        if "traj" in file.lower() and file.endswith(".npy"):
+        if "traj" in file.lower() and file.endswith(".npy") and traj_path is None:
             traj_path = osp.join(validation_dir, file)
             logger.info(f"Found trajectory file: {traj_path}")
-        elif "param" in file.lower() and file.endswith(".npy"):
+        elif "param" in file.lower() and file.endswith(".npy") and params_path is None:
             params_path = osp.join(validation_dir, file)
             logger.info(f"Found parameter file: {params_path}")
 
@@ -235,7 +244,7 @@ def load_validation_dataset(validation_dir,
             valid_parameters = np.load(params_path)
         logger.info(f"Validation set loaded. Size: {valid_dataset.num_samples} trajectories, {valid_dataset.num_pairs} samples, {len(valid_dataloader)} batches.")
     else:
-        logger.warning("Validation set not found. "
-                       "Please set validation_directory in configuration.")
+        logger.warning(f"Validation set not found at {traj_path}"
+                       "\nPlease set validation_directory in configuration.")
     
     return valid_dataset, valid_parameters, valid_dataloader, valid_dataloader_rollout

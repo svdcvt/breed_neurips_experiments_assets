@@ -13,6 +13,7 @@ class MemoryMonitor:
         self.unit = unit
         self.filepath = None
         self.tb_logger = None
+        self.tb_logger_layout = None
         
         if mode == "off":
             if path is not None or tb_logger is not None:
@@ -24,13 +25,25 @@ class MemoryMonitor:
             if tb_logger is None:
                 print("TensorBoard logger must be set for 'on' mode.")
             else:
-                self.tb_logger = tb_logger
+                self.set_tb_logger(tb_logger)
+            
         if "file" in mode:
             if path is None:
                 path = os.getcwd()
                 print("Path is not provided for 'on' mode. Using current working directory.")
             self.filepath = os.path.join(path, "memory_stats.txt")
             print(f"Memory stats will be logged to {self.filepath}.")
+    
+    def set_tb_logger(self, tb_logger):
+        self.tb_logger = tb_logger
+        gpu_labels = [f"GPU_stats_{self.unit}/"+ l for l in ['gpu_in_use', 'gpu_limit', 'gpu_peak_alloc', 'gpu_peak_in_use', 'gpu_arrays_sum']]
+        cpu_labels = [f"CPU_stats_{self.unit}/"+ l for l in ['cpu_rss', 'cpu_vms', 'ram_available']]
+        self.tb_logger_layout = {
+            "Memory_Monitor": {
+                "GPU":["Multiline", gpu_labels],
+                "CPU":["Multiline", cpu_labels]
+                }}
+
     
     def tb_log_stats(self, step):
         """Logs GPU and CPU memory stats to TensorBoard (if provided).
@@ -45,8 +58,10 @@ class MemoryMonitor:
         - RAM available
         """
         if self.tb_logger is not None:
-            self.tb_logger.log_scalars(f"GPU_stats_{self.unit}", self.get_jax_memstats(self.unit), step=step)
-            self.tb_logger.log_scalars(f"CPU_stats_{self.unit}", self.get_cpu_memstats(self.unit), step=step)
+            for key, val in self.get_jax_memstats(self.unit).items():
+                self.tb_logger.log_scalar(f"GPU_stats_{self.unit}/{key}", val, step=step)
+            for key, val in self.get_cpu_memstats(self.unit).items():
+                self.tb_logger.log_scalar(f"CPU_stats_{self.unit}/{key}", val, step=step)
     
     def convert_to_(self, mem, unit='GB'):
         """Convert memory stats to the specified unit."""

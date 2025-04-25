@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing_extensions import override
 
 from melissa.server.parameters import (  # type: ignore
-    StaticExperiment,
+    BaseExperiment,
     HaltonSamplerMixIn,
     RandomUniformSamplerMixIn
 )
@@ -22,13 +22,16 @@ def replace_with_error_handling(original_str, old, new):
 
 
 class BaseCustomSamplerMixIn(RandomUniformSamplerMixIn, HaltonSamplerMixIn):
+    nb_params: int
+    seed: int
+
     """Base class for sampling with custom samplers using placeholder strings
     ic_config."""
     def __init__(self, ic_config, is_valid=False):
         self.ic_config = ic_config
         self.is_valid = is_valid
         if self.is_valid:
-            HaltonSamplerMixIn.__init__(self)
+            HaltonSamplerMixIn.__init__(self, self.nb_params, self.seed)
             os.makedirs(VALIDATION_DIR, exist_ok=True)
         else:
             RandomUniformSamplerMixIn.__init__(self)
@@ -52,17 +55,19 @@ class BaseCustomSamplerMixIn(RandomUniformSamplerMixIn, HaltonSamplerMixIn):
         return sampled_ic_config
 
     @override
-    def draw(self):
-        sampled_params = super().draw()
-        sampled_ic_config = self.make_sampled_ic_config(sampled_params)
-        if self.is_valid and self.current_index == self.nb_sims:
+    def process_drawn(self, parameters):
+        sampled_ic_config = self.make_sampled_ic_config(parameters)
+        return [
+            f'--ic-config="{sampled_ic_config}"'
+        ]
+
+    def finalize(self, exit_:int):
+        if self.is_valid:
             jnp.save(
                 VALIDATION_INPUT_PARAM_FILE,
                 self.parameters
             )
-        return [
-            f'--ic-config="{sampled_ic_config}"'
-        ]
+        super().finalize(exit_)
 
 
 #################################################################
@@ -81,9 +86,9 @@ class SineWaveSamplerMixIn(BaseCustomSamplerMixIn):
         return out
 
 
-class SineWaveClassicSampler(SineWaveSamplerMixIn, StaticExperiment):
+class SineWaveClassicSampler(SineWaveSamplerMixIn, BaseExperiment):
     def __init__(self, ic_config, is_valid=False, **kwargs):
-        StaticExperiment.__init__(self, **kwargs)
+        BaseExperiment.__init__(self, **kwargs)
         SineWaveSamplerMixIn.__init__(self, ic_config, is_valid)
 
 
@@ -103,9 +108,9 @@ class SineCosWaves2DSamplerMixIn(BaseCustomSamplerMixIn):
 
 
 class SineCosWaves2DClassicSampler(SineCosWaves2DSamplerMixIn,
-                                   StaticExperiment):
+                                   BaseExperiment):
     def __init__(self, ic_config, is_valid=False, **kwargs):
-        StaticExperiment.__init__(self, **kwargs)
+        BaseExperiment.__init__(self, **kwargs)
         SineCosWaves2DSamplerMixIn.__init__(self, ic_config, is_valid)
 
 
@@ -128,6 +133,6 @@ BREED_SAMPLERS = {
 }
 
 
-def get_sampler_class_type(ic_type: str, is_breed: bool):
-    d = BREED_SAMPLERS if is_breed else CLASSIC_SAMPLERS
+def get_sampler_class_type(ic_type: str, use_classic: bool):
+    d = CLASSIC_SAMPLERS if use_classic else BREED_SAMPLERS
     return d[ic_type]

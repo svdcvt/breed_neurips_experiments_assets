@@ -12,6 +12,8 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+from matplotlib.colors import CenteredNorm
+from matplotlib.gridspec import GridSpec
 
 from melissa_api import (  # type: ignore
     melissa_init,
@@ -109,16 +111,7 @@ def run_online(stepper, u, flattened_mesh_size, sampled_ic_config):
     melissa_finalize()
     print(f"Total time taken {time.time() - st:.2f} sec.")
     if to_plot:
-        fig, ax = plt.subplots(1, 2, figsize=(9,4))
-        ax[0].plot(traj[0], label='IC')
-        ax[0].plot(traj[-1], label='Last')
-        ax[0].legend()
-        ax[0].set_ylim(-1.4, 1.4)
-        ax[1].imshow(traj.T, cmap='coolwarm', vmin=-1.4, vmax=1.4, aspect='auto')
-        pars = [float(s) for s in sampled_ic_config.split(';')[1:5]]
-
-        fig.savefig(f'difA_{abs(pars[0]-pars[2])/1.4:.2f}_difPh_{abs((abs(pars[1]-pars[3])/(2*np.pi))-0.5):.2f}.png')
-
+        pass
 
 def run_offline(stepper, ic, sampled_ic_config):
     rollout_stepper = ex.rollout(
@@ -141,23 +134,44 @@ def run_offline(stepper, ic, sampled_ic_config):
     print("Trajectory min, max, mean:", trajectory.min(), trajectory.max(), trajectory.mean())
     print("Trajectory std:", trajectory.std())
     
-    if np.random.rand() < 1:
+    if np.random.rand() < 0.1:
         traj = np.array(trajectory).squeeze(1)
-        fig, ax = plt.subplots(1, 2, figsize=(9,4))
-        ax[0].plot(trajectory[0].ravel(), label='IC')
-        ax[0].plot(trajectory[1].ravel(), label='IC+1')
-        ax[0].plot(trajectory[-2].ravel(), label='Last-1')
-        ax[0].plot(trajectory[-1].ravel(), label='Last')
-        ax[0].legend()
-        # ax[0].set_ylim(-2.5, 2.5)
-        im = ax[1].imshow(traj.T, cmap='coolwarm', aspect='auto')#, vmin=-2.5, vmax=2.5)
+
+        fig = plt.figure(layout="constrained", figsize=(15,9))
+        gs = GridSpec(3, 5, figure=fig)
+        ax0 = fig.add_subplot(gs[0, :3])
+        ax1 = fig.add_subplot(gs[0, 3:])
+        ax2 = fig.add_subplot(gs[1:, :])
+        ax = [ax0, ax1, ax2]
+        
+        # fig, ax = plt.subplots(1, 3, )
+        ic_pars = [f'{float(x):.3f}' for x in sampled_ic_config.split(';')[1:-2]]
+
+        fig.suptitle('Amps:' + ', '.join(ic_pars[::2]) + '\nPhs:' + ', '.join(ic_pars[1::2]), fontsize=10)
+        ax[0].plot(traj[0], linewidth=1, label='IC', color='darkgreen')
+        ax[0].plot(traj[-1], linewidth=1,label='Last', color='darkred')
+        ax[0].plot(traj[1], linewidth=1, linestyle='--',label='IC+1', color='limegreen')
+        ax[0].plot(traj[-2], linewidth=1,linestyle='--',label='Last-1', color='salmon')
+        ax[0].legend(loc='upper right', fontsize=6)
+        
+        im = ax[1].imshow(traj.T, cmap='coolwarm', norm=CenteredNorm(), aspect='auto')
         fig.colorbar(im, ax=ax[1])
         ax[1].set_title('Trajectory')
         ax[1].set_xlabel('Time step')
         ax[1].set_ylabel('Mesh points')
-        pars = [float(s) for s in sampled_ic_config.split(';')[1:5]]
+        cmap = plt.get_cmap('RdYlGn_r')
+        for i in range(traj.shape[0])[::10]:
+            ax[2].plot(traj[i],c=cmap(i/100), linewidth=0.5 if i % 100 else 1.5, alpha=0.7)
+        ax[2].axis('off')
 
-        fig.savefig(f'difA_{abs(pars[0]-pars[2])/1.4:.2f}_difPh_{abs((abs(pars[1]-pars[3])/(2*np.pi))-0.5):.2f}.png', dpi=200)
+        trajectory_std = np.std(traj, axis=-1).mean()
+        max_abs = np.max(np.abs(traj))
+
+        plot_dir = os.path.join(VALIDATION_DIR, 'plots')
+        os.makedirs(plot_dir, exist_ok=True)
+        fig.savefig(f'{plot_dir}/traj_std_{trajectory_std:3.1e}_maxabs_{max_abs:3.1e}_id_{sim_id}.png', dpi=200)
+        plt.close(fig)
+        print("FINISHED!")
 
 
 def run_solver(offline, sampled_ic_config):

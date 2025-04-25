@@ -2,7 +2,6 @@ import jax
 import apebench
 import ic_generation as icgen
 
-
 def get_exponax_stepper(scenario, **stepper_config):
     stepper_t = eval(f"exponax.stepper.{scenario.__class__.__name__}")
     return stepper_t(**stepper_config)
@@ -31,6 +30,8 @@ class MelissaSpecificScenario:
             self.stepper = get_exponax_stepper(self.scenario, **stepper_config)
         else:
             self.stepper = self.scenario.get_ref_stepper()
+        
+        print(self.stepper)
 
         self.network_config = network_config
         self.num_spatial_dims = self.scenario.num_spatial_dims
@@ -55,8 +56,23 @@ class MelissaSpecificScenario:
             key=jax.random.PRNGKey(0)
         )
 
-    def get_optimizer(self):
-        return self.scenario.get_optimizer()
+    def get_optimizer(self, with_lr_scheduler=False):
+        optim_args = self.scenario.optim_config.split(";")
+        optimizer_name = optim_args[0]
+        num_training_steps = int(optim_args[1])
+        scheduler_args = optim_args[2:]
+        scheduler_name = scheduler_args[0]
+
+        lr_scheduler = apebench.components.lr_scheduler_dict[scheduler_name.lower()](
+            ";".join(scheduler_args), num_training_steps
+        )
+        optimizer = apebench.components.optimizer_dict[optimizer_name.lower()](self.scenario.optim_config)(
+            lr_scheduler
+        )
+        if with_lr_scheduler:
+            return optimizer, lr_scheduler
+        else:
+            return optimizer
 
     def get_stepper(self):
         return self.stepper
@@ -74,3 +90,7 @@ class MelissaSpecificScenario:
             "Adjust this in `['scenario_config']['stepper_config']` option."
 
         return ic_maker(**input_fn_config)
+    
+    def __repr__(self):
+        return str(self.__dict__)
+
