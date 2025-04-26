@@ -91,11 +91,12 @@ class CommonInitMixIn:
         self.mesh_shape = self.scenario.get_shape()
         # (B, 1, 160) -> (1, 2); (B, 1, 160, 160) -> (1, 2, 3)...
         self.mesh_axes = tuple(range(1, self.scenario.num_spatial_dims + 2)) 
-        self.breed_params = config_dict.get('ac_config', dict()).get("breed_params", dict())
+        self.breed_params = config_dict.get('active_sampling_config', dict()).get("breed_params", dict())
         self.sampler_t = get_sampler_class_type(
             ic_type=scenario_config["ic_config"].split(";")[0],
             use_classic=is_valid
         )
+        print(self.breed_params)
         self.set_parameter_sampler(
             sampler_t=self.sampler_t,
             ic_config=scenario_config["ic_config"],
@@ -107,7 +108,7 @@ class CommonInitMixIn:
             dtype=np.float32
         )
 
-        self.experimental_monitoring = False
+        # self.experimental_monitoring = False
 
 
 class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
@@ -229,21 +230,25 @@ class APEBenchServer(CommonInitMixIn,
             }
         }
         self.tb_logger_layout.update(self.memory_monitor.tb_logger_layout)
-        self.tb_logger.writer.add_custom_scalars(self.tb_logger_layout)
+        try:
+            self.tb_logger._writer.add_custom_scalars(self.tb_logger_layout)
+        except Exception as e:
+            logger.error(f"Error adding custom scalars to TensorBoard: {e}")
+            logger.error("Custom scalars layout may not be applied correctly.")
         # TODO
 
         self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
         logger.info("TRAINING:00000: Training will start as soon as watermark is met.")
         
-        if (
-            self.rank == 0
-            and self._valid_dataloader is not None
-        ):
-            logger.info(f"Rank {self.rank} Running validation at batch_idx={0}")
-            self._on_validation_start(0)
-            for v_batch_idx, v_batch in enumerate(self._valid_dataloader):
-                self.validation_step(v_batch, v_batch_idx, 0)
-            self._on_validation_end(0)
+        # if (
+        #     self.rank == 0
+        #     and self._valid_dataloader is not None
+        # ):
+        #     logger.info(f"Rank {self.rank} Running validation at batch_idx={0}")
+        #     self._on_validation_start(0)
+        #     for v_batch_idx, v_batch in enumerate(self._valid_dataloader):
+        #         self.validation_step(v_batch, v_batch_idx, 0)
+        #     self._on_validation_end(0)
 
 
     @override

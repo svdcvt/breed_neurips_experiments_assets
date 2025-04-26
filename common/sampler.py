@@ -92,8 +92,21 @@ class SineWaveClassicSampler(SineWaveSamplerMixIn, BaseExperiment):
 
 class SineWaveBreedSampler(SineWaveSamplerMixIn, DefaultBreeder):
     def __init__(self, ic_config, is_valid=False, **kwargs):
+        self.le_breed_ratio = 0.0
         DefaultBreeder.__init__(self, **kwargs)
         SineWaveSamplerMixIn.__init__(self, ic_config)
+        self.le_breed_ratio = 0.0
+    
+    def __log_breeding_ratios(self):
+        if self.tb_logger:
+            # pass
+            # self.tb_logger.log_scalar(
+            #     "Ratio_sampler/Empirical",
+            #     self.le_breed_ratio,
+            #     self.R_i,
+            # )
+            self.tb_logger.log_scalar("Ratio_sampler/Expected", self.R, self.R_i)
+
 
 
 class SineCosWaves2DSamplerMixIn(BaseCustomSamplerMixIn):
