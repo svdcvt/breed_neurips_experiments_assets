@@ -107,10 +107,9 @@ class AutoregressiveTrajectoryDataset:
         self.nb_time_steps = nb_time_steps
         logger.info(f"Loading validation dataset from {data_path}...")
         self.validation_dataset = np.load(data_path)#, mmap_mode="r")
-        
         self.num_samples = self.validation_dataset.shape[0] // self.nb_time_steps
         self.num_pairs = self.num_samples * (self.nb_time_steps - 1)
-        logger.info(f"Validation dataset loaded {self.num_samples} {self.num_pairs} {self.validation_dataset.shape}.")
+        logger.info(f"Validation file loaded {self.num_samples} {self.num_pairs} {self.validation_dataset.shape}.")
 
     def __len__(self):
         return self.validation_dataset.shape[0]
@@ -137,12 +136,13 @@ class AutoregressiveTrajectoryDataset:
             - simulation indices
         '''
         def convert_to_array_index(batch_id):
-            return min(batch_id + (batch_id // (self.nb_time_steps - 1)), self.num_pairs - 2)
+            return min(batch_id + (batch_id // (self.nb_time_steps - 1)), self.num_pairs + self.num_samples)
         
         u_prev_indices: list[int] = []
         u_next_indices: list[int] = []
-        for i in range(convert_to_array_index(batch_l), convert_to_array_index(batch_r) + 1):
-            if not i % (self.nb_time_steps - 1) == 0:
+        for i in range(convert_to_array_index(batch_l), convert_to_array_index(batch_r)):
+            if (i + 1) % self.nb_time_steps != 0:
+                # add only if not the last time step
                 u_prev_indices.append(i)
                 u_next_indices.append(i + 1)
 
@@ -231,6 +231,7 @@ def load_validation_dataset(validation_dir,
             data_path=traj_path,
             nb_time_steps=nb_time_steps
         )
+        logger.info(f"Preparing validation dataset with batch size {batch_size}.")
         valid_dataset._prepare_batch_generator(
             batch_size=batch_size,
             rollout_size=rollout_size
@@ -242,7 +243,7 @@ def load_validation_dataset(validation_dir,
 
         if osp.exists(params_path):
             valid_parameters = np.load(params_path)
-        logger.info(f"Validation set loaded. Size: {valid_dataset.num_samples} trajectories, {valid_dataset.num_pairs} samples, {len(valid_dataloader)} batches.")
+        logger.info(f"Validation dataset is prepared: {len(valid_dataloader)} batches.")
     else:
         logger.warning(f"Validation set not found at {traj_path}"
                        "\nPlease set validation_directory in configuration.")

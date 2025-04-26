@@ -157,7 +157,7 @@ class APEBenchServer(CommonInitMixIn,
         # Setting validation data
         self.valid_rollout = self.dl_config.get("valid_rollout", -1)
         self.valid_batch_size = self.dl_config.get("valid_batch_size", 32)
-        self.valid_nb_time_steps = self.dl_config.get("valid_nb_time_steps", self.nb_time_steps) + 1 # includes t=0
+        self.valid_nb_time_steps = self.dl_config.get("valid_nb_time_steps", self.nb_time_steps)
         self.valid_dataset, self.valid_parameters, self.valid_dataloader, self.valid_dataloader_rollout = dl_utils.load_validation_dataset(
             validation_dir=self.dl_config.get("validation_directory", None),
             validation_file=self.dl_config.get("validation_file", None),
