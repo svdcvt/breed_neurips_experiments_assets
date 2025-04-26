@@ -8,6 +8,7 @@ from typing_extensions import override
 import numpy as np
 import jax.numpy as jnp
 import jax
+import matplotlib.pyplot as plt
 
 import pdequinox as pdeqx
 import equinox as eqx
@@ -240,15 +241,38 @@ class APEBenchServer(CommonInitMixIn,
         self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
         logger.info("TRAINING:00000: Training will start as soon as watermark is met.")
         
-        # if (
-        #     self.rank == 0
-        #     and self._valid_dataloader is not None
-        # ):
-        #     logger.info(f"Rank {self.rank} Running validation at batch_idx={0}")
-        #     self._on_validation_start(0)
-        #     for v_batch_idx, v_batch in enumerate(self._valid_dataloader):
-        #         self.validation_step(v_batch, v_batch_idx, 0)
-        #     self._on_validation_end(0)
+        if (
+            self.rank == 0
+            and self._valid_dataloader is not None
+        ):
+            logger.info(f"Rank {self.rank} Running validation at batch_idx={0}")
+            start = time.time()
+            b_times = []
+            self._on_validation_start(0)
+            for v_batch_idx, v_batch in enumerate(self._valid_dataloader):
+                b_start = time.time()
+                self.validation_step(v_batch, v_batch_idx, 0)
+                b_times.append(time.time() - b_start)
+            main_time = time.time() - start
+            self._on_validation_end(0)
+            total_time = time.time() - start
+            logger.info((f"Validation successfully completed at batch_idx=0. "
+                        f"\n\tTotal time: {total_time:.2f} seconds. Main time: {main_time:.2f} seconds. "
+                        f"\n\tRollout time: {total_time - main_time:.2f} seconds. "
+                        f"\n\tAverage time per batch: {np.mean(b_times):.2f} seconds. Max time per batch: {np.max(b_times):.2f} seconds."))
+            self.memory_monitor.log_stats("After validation", iteration=1)
+
+            fig, ax = plt.subplots(1, 1)
+            sc = ax.scatter(*self.valid_parameters[:,::2].T, c=self.losses_per_sample.reshape(100, 100).mean(-1), cmap='Reds', vmin=0.0)
+            fig.colorbar(sc)
+            ax.set_xlabel("Amplitude 1")
+            ax.set_ylabel("Amplitude 2")
+            ax.set_title("Validation loss scatter plot")
+            self.tb_logger.log_figure(
+                "Scatter/ValidationLoss",
+                fig,
+                0
+            )
 
 
     @override
@@ -386,7 +410,7 @@ class APEBenchServer(CommonInitMixIn,
             # predictions, rollout_loss = self.run_validation_rollout(batch_idx, memory_efficient=False)
             # plot predictions, plot rollout_loss
 
-    def run_validation_rollout(self, batch_idx, memory_efficient=True):
+    def run_validation_rollout(self, batch_idx, memory_efficient=True, plot_rollout_loss=False):
         """This loss is across all trajectories rolled out from their respective ICs.
         t[0] -> t[1] -> ... t[rollout]
         """
@@ -396,6 +420,8 @@ class APEBenchServer(CommonInitMixIn,
         rollout_loss = 0.0
         if self.valid_rollout > self.nb_time_steps:
             rollout_known_loss = 0.0
+        if plot_rollout_loss:
+            rollout_losses = [0.0 for _ in range(self.valid_rollout - 1)]
         # by batches
         for ic_idx, rollout_idx in self.valid_dataloader_rollout:
             u_step = jnp.asarray(self.valid_dataset[ic_idx])
@@ -418,7 +444,10 @@ class APEBenchServer(CommonInitMixIn,
                 for r, roll_idx in enumerate(rollout_idx, start=1):
                     u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
                     u_next = jnp.asarray(self.valid_dataset[roll_idx])
-                    rollout_loss += jnp.sum(jax.vmap(ex.metrics.nRMSE)(u_step, u_next)).item()
+                    loss = jnp.sum(jax.vmap(ex.metrics.nRMSE)(u_step, u_next))
+                    rollout_loss += loss.item()
+                    if plot_rollout_loss:
+                        rollout_losses[r-1] += loss.item()
                     del u_next
                     if self.valid_rollout > self.nb_time_steps and r == self.nb_time_steps:
                         rollout_known_loss = rollout_loss
@@ -455,7 +484,28 @@ class APEBenchServer(CommonInitMixIn,
             logger.info(
                 f"TRAINING:{batch_idx:05d}: Validation known rollout loss: {rollout_known_loss / total / self.nb_time_steps:.2e}"
             )
-        
+        if plot_rollout_loss:
+            rollout_losses = np.asarray(rollout_losses) / total
+            fig, ax = plt.subplots(1,1)
+            ax.plot(rollout_losses)
+            ax.vlines(
+                self.nb_time_steps,
+                ymin=0,
+                ymax=np.max(rollout_losses),
+                color="red",
+                linestyle="--",
+                label="Known rollout"
+            )
+            ax.grid(which="both")
+            ax.set_xlabel("Rollout step")
+            ax.set_ylabel("nRMSE")
+            ax.set_title(f"Validation rollout loss at batch {batch_idx}")
+            self.tb_logger.log_figure(
+                f"Loss_valid/rollout_full",
+                fig,
+                batch_idx
+            )
+
         # we can return the predictions and the errors
         # but we don't need them for now
         # return u_step, rollout_loss_batch

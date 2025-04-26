@@ -42,10 +42,13 @@ def gather_parameters(directory):
     # Get all client.*.sh files and sort them
     # client.X.Y.sh and cleint.XB.Y.sh are in the directory
     # Sort by the numeric part after 'client.' and by the numeric part after 'B' if present
+    all_files = Path(directory).glob("client.*.*.sh")
+    b_filter = lambda x: x.split('B')[0] if 'B' in x else x
     
-    sorted_files = sorted(Path(directory).glob("client.*.*.sh"),
-                            key=lambda x: (int(x.stem.split('.')[1].split('B')[0]), 
-                                           int(x.stem.split('.')[2])))
+    sorted_files = sorted(
+        all_files,
+        key=lambda x: (int(b_filter(x.stem.split('.')[1])), int(x.stem.split('.')[2]))
+        )
     for file_path in sorted_files:
         resampling_id = file_path.stem.split('.')[1].split('B')[0]
         is_b = 'B' in file_path.stem
@@ -69,7 +72,6 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
     # c_ids is just the client id
     # is_bs is a boolean array indicating if the client is from proposal of not
 
-    
     # Load additional data points
     additional_parameters = np.load(additional_params_path)
     if additional_parameters.shape[1] < parameters.shape[1]:
@@ -88,7 +90,7 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
             phase_std = phs.std(axis=1, keepdims=True)
             return np.concatenate((amplitude, phase, amplitude_std, phase_std), axis=1)
         elif fun == 'norm':
-            amplitude = np.linalg.norm(amps, axis=1, keepdims=True) / np.linalg.norm(np.array([0.7] * (params.shape[1]//2)))
+            amplitude = np.linalg.norm(amps, axis=1, keepdims=True) / np.linalg.norm(np.array([1.0] * (params.shape[1]//2)))
             phase = np.linalg.norm(phs, axis=1, keepdims=True) / np.linalg.norm(np.array([2 * np.pi] * (params.shape[1]//2)))
             return np.concatenate((amplitude, phase), axis=1)
         elif fun == "ic_std_mean":
@@ -112,8 +114,8 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
         agg_label = ['Mean', 'Std']
         parameters = agg_parameters(parameters, fun='mean+std')
         additional_parameters = agg_parameters(additional_parameters, fun='mean+std')
-        min_params_all = np.array([-0.7, 0, 0, 0])
-        max_params_all = np.array([0.7, 2 * np.pi, 0.7, np.pi])
+        min_params_all = np.array([-1.0, 0, 0, 0])
+        max_params_all = np.array([1.0, 2 * np.pi, 1.0, np.pi])
     elif agg == 'norm':
         agg_label = ['Norm']
         parameters = agg_parameters(parameters, fun='norm')
@@ -131,8 +133,8 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
         min_params_all = np.array([-1, 0])
         max_params_all = np.array([1, a/1.5])
     else:
-        min_params_all = np.array([-0.7, 0] * n_p)
-        max_params_all = np.array([0.7, 2 * np.pi] * n_p)
+        min_params_all = np.array([-1.0, 0] * n_p)
+        max_params_all = np.array([1.0, 2 * np.pi] * n_p)
     # Get number of parameters per data point
     n_params = parameters.shape[1]
     
@@ -278,21 +280,28 @@ def main():
                         help='Aggregation function to apply to parameters')
     parser.add_argument('--stack', action='store_true', default=False,
                         help='Stack histograms for resampling groups')
+    parser.add_argument('--validation-path', type=str, default='',
+                        help='Path to the validation parameters file')
 
     args = parser.parse_args()
     output_dir = os.path.dirname(args.input_dir.rstrip('/'))
-    
+    if args.agg == '':
+        args.agg = None
+
     r_ids, is_bs, c_ids, parameters, timestamps = gather_parameters(args.input_dir)
-    
+
     if len(parameters) == 0:
         print("No valid parameters found in the client scripts.")
         return
-    
+
     print(f"Found {len(parameters)} client scripts with parameters.")
     print(f"Each client has {parameters.shape[1]} parameters.")
-    
-    path = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default_5waves/trajectories/input_parameters.npy"
-    plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, path, args.agg, args.stack)
+    # path = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default_5waves/trajectories/input_parameters.npy"
+    if not os.path.exists(args.validation_path) and args.validation_path != '':
+        print(f"Validation parameters file not found at {args.validation_path}.")
+        return
+
+    plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, args.validation_path, args.agg, args.stack)
 
 
 if __name__ == "__main__":
