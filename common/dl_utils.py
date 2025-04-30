@@ -102,12 +102,19 @@ class AutoregressiveTrajectoryDataset:
     def __init__(
         self,
         data_path: str,
-        nb_time_steps: int
+        nb_time_steps: int,
+        num_samples: int | None = None,
     ) -> None:
         self.nb_time_steps = nb_time_steps
+        self.num_samples = num_samples
         logger.info(f"Loading validation dataset from {data_path}...")
-        self.validation_dataset = np.load(data_path)#, mmap_mode="r")
-        self.num_samples = self.validation_dataset.shape[0] // self.nb_time_steps
+        validation_dataset_mmap = np.load(data_path, mmap_mode="r")
+        if self.num_samples is not None:
+            self.validation_dataset = np.asarray(validation_dataset_mmap[:num_samples * self.nb_time_steps])
+        else:
+            self.validation_dataset = np.asarray(validation_dataset_mmap)
+            self.num_samples = self.validation_dataset.shape[0] // self.nb_time_steps
+        del validation_dataset_mmap
         self.num_pairs = self.num_samples * (self.nb_time_steps - 1)
         logger.info(f"Validation file loaded {self.num_samples} {self.num_pairs} {self.validation_dataset.shape}.")
 
@@ -197,7 +204,8 @@ def load_validation_dataset(validation_dir,
                             validation_file,
                             nb_time_steps,
                             batch_size,
-                            rollout_size=-1):
+                            rollout_size=-1,
+                            num_samples=None):
     if validation_dir is None:
         return None, None, None, None
 
@@ -229,7 +237,8 @@ def load_validation_dataset(validation_dir,
     if osp.exists(traj_path):
         valid_dataset = AutoregressiveTrajectoryDataset(
             data_path=traj_path,
-            nb_time_steps=nb_time_steps
+            nb_time_steps=nb_time_steps,
+            num_samples=num_samples
         )
         logger.info(f"Preparing validation dataset with batch size {batch_size}.")
         valid_dataset._prepare_batch_generator(
@@ -242,7 +251,7 @@ def load_validation_dataset(validation_dir,
             valid_dataloader_rollout = valid_dataset.batch_generator(rollout_size=rollout_size)
 
         if osp.exists(params_path):
-            valid_parameters = np.load(params_path)
+            valid_parameters = np.load(params_path)[:num_samples]
         logger.info(f"Validation dataset is prepared: {len(valid_dataloader)} batches.")
     else:
         logger.warning(f"Validation set not found at {traj_path}"

@@ -3,12 +3,12 @@ import numpy as np
 import argparse
 
 
-def merge_npy_files(directory_path, output_file="all_trajectories.npy", test=False):
+def merge_npy_files(directory_path, output_file="all_trajectories.npy", test=False, quiet=False):
     # Get a sorted list of all files matching the pattern sim{number}.npy
     
     if not directory_path.rstrip('/').endswith("trajectories"):
         print(f"Directory {directory_path} does not end with 'trajectories', adding it.")
-        directory_path = osp.join(directory_path, "trajectories")
+        directory_path = os.path.join(directory_path, "trajectories")
     files = sorted(
         [
             f
@@ -42,14 +42,16 @@ def merge_npy_files(directory_path, output_file="all_trajectories.npy", test=Fal
     # Copy data from each file into the memory-mapped array
     current_index = 0
     for i, file in enumerate(files):
-        print(f"Reading file {file}...")
+        if not quiet:
+            print(f"Reading file {file}...")
         file_path = os.path.join(directory_path, file)
         array = np.load(file_path, allow_pickle=False, mmap_mode="r")
         rows = array.shape[0]
         if not test:
             merged_array[current_index : current_index + rows] = array
             current_index += rows
-            print(f"Deleting file {file_path}...")
+            if not quiet:
+                print(f"Deleting file {file_path}...")
             os.remove(file_path)
         else:
             print(f"Test mode: File {file_path} would be deleted.")
@@ -80,6 +82,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Test mode, do not delete files after merging.",
     )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress output messages.",
+    )
     args = parser.parse_args()
 
-    merge_npy_files(args.directory, test=args.test)
+    merge_npy_files(args.directory, test=args.test, quiet=args.quiet)
+

@@ -59,13 +59,16 @@ class CommonInitMixIn:
             expected_batches_min = int(
                 study_options["parameter_sweep_size"] * study_options["nb_time_steps"] / config_dict["dl_config"]["batch_size"]
             )
-            num_training_steps = expected_batches_min * 2 # TODO this is very approximate!
+            # num_training_steps = expected_batches_min * 2 # TODO this is very approximate!
+            # TODO FIXME (i dont know how...)
+            num_training_steps = 20000
 
             scheduler_name = optim_config[1]
             if scheduler_name == "warmup_cosine":
                 scheduler_start = float(optim_config[2])
                 scheduler_peak = float(optim_config[3])
-                scheduler_warmup = int(float(optim_config[4]) * expected_batches_min)
+                # scheduler_warmup = int(float(optim_config[4]) * expected_batches_min)
+                scheduler_warmup = 10000
                 # 'adam;10_000;warmup_cosine;0.0;1e-3;2_000'
                 scenario_config["optim_config"] = (
                     f"{optim_name};{num_training_steps};{scheduler_name};"
@@ -152,6 +155,13 @@ class APEBenchServer(CommonInitMixIn,
             mode=self.monitoring_config.get("log_memory", "off"),
             tb_logger=None # self.tb_logger TODO
         )
+        self.save_model_freq = self.monitoring_config.get("checkpoint_model_each_step", 0)
+        if self.no_fault_tolerance and self.save_model_freq < 100:
+            logger.warning((f"Fault tolerance is not active, but model checkpointing is requested every {self.save_model_freq} batch." 
+                           "Frequency is changed to 100."))
+            self.save_model_freq = 100
+        
+
         self.memory_monitor.log_stats("At init", iteration=0)
         # self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
 
@@ -159,13 +169,17 @@ class APEBenchServer(CommonInitMixIn,
         self.valid_rollout = self.dl_config.get("valid_rollout", -1)
         self.valid_batch_size = self.dl_config.get("valid_batch_size", 32)
         self.valid_nb_time_steps = self.dl_config.get("valid_nb_time_steps", self.nb_time_steps)
+        self.valid_num_samples = self.dl_config.get("valid_num_samples", None)
         self.valid_dataset, self.valid_parameters, self.valid_dataloader, self.valid_dataloader_rollout = dl_utils.load_validation_dataset(
             validation_dir=self.dl_config.get("validation_directory", None),
             validation_file=self.dl_config.get("validation_file", None),
             nb_time_steps=self.valid_nb_time_steps,
             batch_size=self.valid_batch_size,
-            rollout_size=self.valid_rollout
+            rollout_size=self.valid_rollout,
+            num_samples=self.valid_num_samples
         )
+        # validation rollout is intensive and very slow
+        self.one_small_batch = self.dl_config.get("valid_rollout_fast", False)
         self.best_val_loss = np.inf
 
         # Setting plotting config
@@ -262,19 +276,6 @@ class APEBenchServer(CommonInitMixIn,
                         f"\n\tAverage time per batch: {np.mean(b_times):.2f} seconds. Max time per batch: {np.max(b_times):.2f} seconds."))
             self.memory_monitor.log_stats("After validation", iteration=1)
 
-            fig, ax = plt.subplots(1, 1)
-            sc = ax.scatter(*self.valid_parameters[:,::2].T, c=self.losses_per_sample.reshape(100, 100).mean(-1), cmap='Reds', vmin=0.0)
-            fig.colorbar(sc)
-            ax.set_xlabel("Amplitude 1")
-            ax.set_ylabel("Amplitude 2")
-            ax.set_title("Validation loss scatter plot")
-            self.tb_logger.log_figure(
-                "Scatter/ValidationLoss",
-                fig,
-                0
-            )
-
-
     @override
     def training_step(self, batch, batch_idx):
         u_prev, u_next, sim_ids_list, time_step_list = batch
@@ -311,13 +312,10 @@ class APEBenchServer(CommonInitMixIn,
             active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
         active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
         
-        if self.monitoring_config.get("checkpoint_model_each_step", False):
-            if not self.no_fault_tolerance:
-                logger.info(f"TRAINING:{batch_idx:05d}: Saving model.")
-                self.checkpoint_model(batch_idx, suffix=None)
-            else:
-                logger.warning(f"TRAINING:{batch_idx:05d}: Fault tolerance is not active, but model checkpointing is requested every batch. Model is not saved, turn fault tolerance on.")
-        
+        if batch_idx % self.save_model_freq == 0:
+            logger.info(f"TRAINING:{batch_idx:05d}: Saving model.")
+            self.checkpoint_model(batch_idx, suffix=batch_idx)
+
 
     @override
     def on_train_end(self):
@@ -338,6 +336,21 @@ class APEBenchServer(CommonInitMixIn,
     @override
     def on_validation_start(self, batch_idx):
         """Keep track of some variables for validation loop."""
+        if self.buffer.seen_ctr:
+                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+                ax.bar(
+                    self.buffer.seen_ctr.keys(),
+                    self.buffer.seen_ctr.values(),
+                )
+                ax.set_xlabel("Sample Seen Count (log-scale)")
+                ax.set_ylabel("Frequency")
+                ax.set_xscale("log")
+                self.tb_logger.log_figure(
+                    "Seen_count_hist",
+                    fig,
+                    batch_idx
+                )
+                plt.close(fig)
         self.losses_per_sample = []
         self.batch_val_losses = []
         self.memory_monitor.log_stats("Before validation start", iteration=batch_idx)
@@ -391,39 +404,69 @@ class APEBenchServer(CommonInitMixIn,
                 }
             for key, val in stats.items():
                 self.tb_logger.log_scalar(f"Loss_valid_stats/{key}", val, batch_idx)
-                    
+
         if self.monitoring_config.get("checkpoint_model_best", False):
             if avg_val_loss < self.best_val_loss:
                 self.best_val_loss = avg_val_loss
                 logger.info(f"TRAINING:{batch_idx:05d}: Saving best model.")
                 self.checkpoint_model(batch_idx, suffix="best")
+
+                fig, ax = plt.subplots(1, 1)
+                sc = ax.scatter(
+                    *self.valid_parameters[:,::2].T,
+                    c=self.losses_per_sample.reshape(-1, self.valid_dataset.nb_time_steps - 1).mean(-1),
+                    cmap='Reds', vmin=0.0, s=100, alpha=0.5
+                )
+                fig.colorbar(sc)
+                ax.set_xlabel("Amplitude 1")
+                ax.set_ylabel("Amplitude 2")
+                ax.set_title("Validation loss scatter plot")
+                self.tb_logger.log_figure(
+                    "Scatter/ValidationLoss",
+                    fig,
+                    batch_idx
+                )
+                plt.close(fig)
         
         # after running regular validation, run the rollout from ICs
         if self.rank == 0 and self.valid_rollout > 1:
             logger.info(f"TRAINING:{batch_idx:05d}: Running validation rollout n={self.valid_rollout}.")
             start_val = time.time()
-            self.run_validation_rollout(batch_idx, memory_efficient=True)
-            logger.info(f"TRAINING:{batch_idx:05d}: Validation rollout took {time.time() - start_val:.2f} seconds.")
+            self.run_validation_rollout(
+                batch_idx, memory_efficient=True,
+                plot_rollout_loss=True, plot_prediction=True, one_small_batch=self.one_small_batch)
+            logger.info(f"TRAINING:{batch_idx:05d}: Validation rollout function took {time.time() - start_val:.2f} seconds.")
             # self.validation_mesh_plot(batch_idx, valid_batch_idx, sim_ids_list, u_prev, u_next, u_next_hat)
             self.memory_monitor.log_stats(f"After validation rollout", iteration=batch_idx)
             # when we want to add plots
             # predictions, rollout_loss = self.run_validation_rollout(batch_idx, memory_efficient=False)
             # plot predictions, plot rollout_loss
 
-    def run_validation_rollout(self, batch_idx, memory_efficient=True, plot_rollout_loss=False):
+    def run_validation_rollout(
+        self, batch_idx, memory_efficient=True,
+        plot_rollout_loss=False, plot_prediction=False, one_small_batch=False
+        ):
         """This loss is across all trajectories rolled out from their respective ICs.
         t[0] -> t[1] -> ... t[rollout]
         """
+
+        if one_small_batch:
+            batch_size = self.dl_config["batch_size"] // 10
+
         total = self.valid_dataset.num_samples
-        
-        
+        if one_small_batch:
+            total = batch_size
         rollout_loss = 0.0
         if self.valid_rollout > self.nb_time_steps:
             rollout_known_loss = 0.0
         if plot_rollout_loss:
-            rollout_losses = [0.0 for _ in range(self.valid_rollout - 1)]
+            rollout_losses = [0.0 for _ in range(self.valid_rollout)]
         # by batches
+        start = time.time()
+
         for ic_idx, rollout_idx in self.valid_dataloader_rollout:
+            if one_small_batch:
+                ic_idx = ic_idx[:batch_size]
             u_step = jnp.asarray(self.valid_dataset[ic_idx])
             # we can either use ex.rollout to get full trajectory (meaning, GPU memory should fit nb_time_steps * batch_size * mesh_shape * 2)
             # or we can use the model to predict step by step, which is more memory efficient but maybe slower
@@ -442,6 +485,8 @@ class APEBenchServer(CommonInitMixIn,
                 # so it is not feasible
                 rollout_loss = 0.0
                 for r, roll_idx in enumerate(rollout_idx, start=1):
+                    if one_small_batch:
+                        roll_idx = roll_idx[:batch_size]
                     u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
                     u_next = jnp.asarray(self.valid_dataset[roll_idx])
                     loss = jnp.sum(jax.vmap(ex.metrics.nRMSE)(u_step, u_next))
@@ -466,6 +511,9 @@ class APEBenchServer(CommonInitMixIn,
                 rollout_loss += jnp.sum(rollout_loss_batch).item()
                 if self.valid_rollout > self.nb_time_steps:
                     rollout_known_loss += jnp.sum(rollout_loss_batch[:,:self.nb_time_steps]).item()
+            if one_small_batch:
+                break
+        logger.info(f"TRAINING:{batch_idx:05d}: Validation rollout took {time.time() - start:.2f} seconds.")
 
         self.tb_logger.log_scalar(
             f"Loss_valid/rollout_longer_n{self.valid_rollout}_nRMSE",
@@ -494,7 +542,6 @@ class APEBenchServer(CommonInitMixIn,
                 ymax=np.max(rollout_losses),
                 color="red",
                 linestyle="--",
-                label="Known rollout"
             )
             ax.grid(which="both")
             ax.set_xlabel("Rollout step")
@@ -505,6 +552,28 @@ class APEBenchServer(CommonInitMixIn,
                 fig,
                 batch_idx
             )
+            plt.close(fig)
+        if plot_prediction:
+            with jax.default_device(jax.devices("gpu")[0]):
+                u_step = ex.rollout(self.model, self.valid_dataset.nb_time_steps)(jnp.asarray(self.valid_dataset[0])).squeeze(1).T
+            u_true = self.valid_dataset[:self.valid_dataset.nb_time_steps].squeeze(1).T
+            fig, ax = plt.subplots(1, 3, figsize=(19,6))
+            im1 = ax[0].imshow(u_step, vmin=-2.1, vmax=2.1, cmap='coolwarm', aspect='auto')
+            ax[0].set_title("Prediction")
+            ax[1].imshow(u_true, vmin=-2.1, vmax=2.1, cmap='coolwarm', aspect='auto')
+            ax[1].set_title("True")
+            fig.colorbar(im1, ax=ax[0])
+            fig.colorbar(im1, ax=ax[1])
+            im2 = ax[2].imshow(abs(u_step - u_true), vmin=0, cmap='Reds', aspect='auto')
+            ax[2].set_title("Difference")
+            fig.colorbar(im2, ax=ax[2])
+            fig.tight_layout()
+            self.tb_logger.log_figure(
+                f"ValidationMeshPredictions",
+                fig,
+                batch_idx
+            )
+            plt.close(fig)
 
         # we can return the predictions and the errors
         # but we don't need them for now
