@@ -715,7 +715,8 @@ class APEBenchServerValidation(CommonInitMixIn):
         self.nb_time_steps = config_dict["study_options"]["nb_time_steps"]
         self.model = self.scenario.get_network()
         self.study_path = study_path
-        assert os.path.split(study_path)[-1] == config_dict['output_dir'], f"Study path {study_path} does not match output_dir {config_dict['output_dir']} in config."
+            
+        assert study_path.split('/')[-4:] == config_dict['output_dir'].split("/")[-4:], f"Study path {study_path} does not match output_dir {config_dict['output_dir']} in config."
 
         self.valid_batch_size = self.dl_config.get("valid_batch_size", 32) * 10
         self.valid_nb_time_steps = self.dl_config["valid_nb_time_steps"]
