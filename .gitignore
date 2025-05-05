@@ -21,3 +21,5 @@ melissa-202*
 **.png
 **.csv
 **OAR**
+experiments/set/*
+experiments/across_pdes/diff_mode/ks_cons/unet_*

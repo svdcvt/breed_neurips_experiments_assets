@@ -1,8 +1,8 @@
-# flake8: noqa
 import os
 import time
 import logging
-import gc
+import glob
+from tqdm import tqdm
 
 from typing_extensions import override
 import numpy as np
@@ -19,7 +19,6 @@ from melissa.server.deep_learning import active_sampling
 from melissa.server.deep_learning.active_sampling.active_sampling_server import (
     ExperimentalDeepMelissaActiveSamplingServer
 )
-from dl_utils import merge_npy_files
 
 import dl_utils
 import plot_utils as putils
@@ -35,7 +34,6 @@ logging.getLogger("matplotlib").setLevel(logging.ERROR)
 
 class CommonInitMixIn:
     def __init__(self, config_dict, is_valid=False):
-        super().__init__(config_dict)
         if not is_valid:
             if self.world_rank == self.breed_rank:
                 time.sleep(5)
@@ -44,13 +42,15 @@ class CommonInitMixIn:
         # Reading the config file
         study_options = config_dict["study_options"]
         scenario_config = study_options["scenario_config"]
+        print(study_options)
+        print(scenario_config)
         l_bounds, u_bounds = study_options["l_bounds"], study_options["u_bounds"]
         for i in range(len(l_bounds)):
             if isinstance(l_bounds[i], str):
                 l_bounds[i] = eval(l_bounds[i])
             if isinstance(u_bounds[i], str):
                 u_bounds[i] = eval(u_bounds[i])
-        
+
         if not is_valid:
             if "optim_config" not in scenario_config:
                 scenario_config["optim_config"] = "adam;warmup_cosine;1e-5;1e-3;0.05"
@@ -67,8 +67,17 @@ class CommonInitMixIn:
             if scheduler_name == "warmup_cosine":
                 scheduler_start = float(optim_config[2])
                 scheduler_peak = float(optim_config[3])
-                # scheduler_warmup = int(float(optim_config[4]) * expected_batches_min)
-                scheduler_warmup = 10000
+
+                scheduler_warmup = float(optim_config[4])
+                if scheduler_warmup <= 1.0:
+                    scheduler_warmup = int(scheduler_warmup * expected_batches_min)
+                else:
+                    scheduler_warmup = int(scheduler_warmup)
+                if scheduler_warmup >= num_training_steps:
+                    scheduler_warmup = num_training_steps - 1
+                if scheduler_warmup <= 0:
+                    scheduler_warmup = 1
+
                 # 'adam;10_000;warmup_cosine;0.0;1e-3;2_000'
                 scenario_config["optim_config"] = (
                     f"{optim_name};{num_training_steps};{scheduler_name};"
@@ -112,13 +121,12 @@ class CommonInitMixIn:
             dtype=np.float32
         )
 
-        # self.experimental_monitoring = False
-
 
 class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
     def __init__(self, config_dict):
+        OfflineServer.__init__(self, config_dict)
         CommonInitMixIn.__init__(self, config_dict, is_valid=True)
-    
+
     # @override
     # def _server_finalize(self, exit_: int = 0) -> None:
     #     logger.info("Going to merge trajectories now.")
@@ -126,7 +134,7 @@ class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
     #     logger.info("Merging trajectories done.")
 
     #     super()._server_finalize(exit_)
-    
+
     # @override
     # def _all_done(self) -> bool:
     #     logger.info((f"Rank {self.rank}>> calls all done."
@@ -135,7 +143,7 @@ class APEBenchOfflineServer(CommonInitMixIn, OfflineServer):
     #     f"\nGroups: {self._groups}"
     #     f"\nFinished groups: {self.finished_groups}"
     #     f"\nNB Submitted groups: {self.nb_submitted_groups}"))
-        
+
     #     super()._all_done()
 
 
@@ -143,6 +151,7 @@ class APEBenchServer(CommonInitMixIn,
                      ExperimentalDeepMelissaActiveSamplingServer):
 
     def __init__(self, config_dict):
+        ExperimentalDeepMelissaActiveSamplingServer.__init__(self, config_dict)
         CommonInitMixIn.__init__(self, config_dict)
         if self.world_rank == self.breed_rank:
             return
@@ -153,14 +162,13 @@ class APEBenchServer(CommonInitMixIn,
         # Setting monitoring config
         self.memory_monitor = mutils.MemoryMonitor(
             mode=self.monitoring_config.get("log_memory", "off"),
-            tb_logger=None # self.tb_logger TODO
+            tb_logger=None  # self.tb_logger TODO
         )
         self.save_model_freq = self.monitoring_config.get("checkpoint_model_each_step", 0)
         if self.no_fault_tolerance and self.save_model_freq < 100:
-            logger.warning((f"Fault tolerance is not active, but model checkpointing is requested every {self.save_model_freq} batch." 
+            logger.warning((f"Fault tolerance is not active, but model checkpointing is requested every {self.save_model_freq} batch."
                            "Frequency is changed to 100."))
             self.save_model_freq = 100
-        
 
         self.memory_monitor.log_stats("At init", iteration=0)
         # self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
@@ -189,13 +197,13 @@ class APEBenchServer(CommonInitMixIn,
         #     nrows = self.plotting_config.get("plot_rows", 5)
         #     self.plot_row_ids = np.linspace(0, self.valid_batch_size, num=nrows, dtype=int)
         #     self.plot_tids = np.linspace(0, self.valid_nb_time_steps, num=nrows, dtype=int)
-    
+
     def get_learning_rate(self):
         _, scheduler = self.scenario.get_optimizer(with_lr_scheduler=True)
-        count = self.opt_state[0].count # get current step
-        lr = scheduler(count) # get learning rate from schedule
+        count = self.opt_state[0].count  # get current step
+        lr = scheduler(count)  # get learning rate from schedule
         return lr.item()
-    
+
     def get_breed_ratio(self, sim_id_list):
         is_bred_list = []
         for sim_id in sim_id_list:
@@ -207,32 +215,32 @@ class APEBenchServer(CommonInitMixIn,
         model = self.scenario.get_network()
         optimizer = self.scenario.get_optimizer()
         self.opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
-        
+
         logger.info(
             f"TRAINING:00000:\nModel parameters count: {pdeqx.count_parameters(model)}"
             f"\nOptimizer config: {self.scenario.scenario.optim_config}"
             f"\nAPEBench scenario: {self.scenario.scenario}"
         )
-        
+
         return model, optimizer
-    
+
     @override
     def process_simulation_data(self, msg, config_dict):
         u_prev = msg.data["preposition"].reshape(*self.mesh_shape)
         u_next = msg.data["position"].reshape(*self.mesh_shape)
         return u_prev, u_next, msg.simulation_id, msg.time_step
-    
+
     @override
     def on_train_start(self):
         # TODO shitcoded because for example tb_logger is not set in the constructor
         self.memory_monitor.set_tb_logger(self.tb_logger)
         self.tb_logger_layout = {
             "Loss": {
-            "Train_Val": ["Multiline", ["Loss/train", "Loss_valid/mean"]],
-            "Val_Mean_Min_Max": ["Margin", ["Loss_valid_stats/mean_mean", "Loss_valid_stats/min", "Loss_valid_stats/max"]],
-            "Val_Mean_Percentile_10_90": ["Margin", ["Loss_valid_stats/p50", "Loss_valid_stats/p10", "Loss_valid_stats/p90"]],
-            "Val_Mean_Percentile_25_75": ["Margin", ["Loss_valid_stats/p50", "Loss_valid_stats/p25", "Loss_valid_stats/p75"]],
-            "Val_Mean_pm_1std": ["Margin", ["Loss_valid_stats/mean_mean", "Loss_valid_stats/mean_mstd", "Loss_valid_stats/mean_pstd"]]
+                "Train_Val": ["Multiline", ["Loss/train", "Loss_valid/mean"]],
+                "Val_Mean_Min_Max": ["Margin", ["Loss_valid_stats/mean_mean", "Loss_valid_stats/min", "Loss_valid_stats/max"]],
+                "Val_Mean_Percentile_10_90": ["Margin", ["Loss_valid_stats/p50", "Loss_valid_stats/p10", "Loss_valid_stats/p90"]],
+                "Val_Mean_Percentile_25_75": ["Margin", ["Loss_valid_stats/p50", "Loss_valid_stats/p25", "Loss_valid_stats/p75"]],
+                "Val_Mean_pm_1std": ["Margin", ["Loss_valid_stats/mean_mean", "Loss_valid_stats/mean_mstd", "Loss_valid_stats/mean_pstd"]]
             },
             "Rollout": {
                 "Both": ["Multiline", [f"Loss_valid/rollout_longer_n{self.valid_rollout}_nRMSE", f"Loss_valid/rollout_seen_n{self.nb_time_steps}_nRMSE"]],
@@ -254,10 +262,9 @@ class APEBenchServer(CommonInitMixIn,
 
         self.memory_monitor.log_stats("After preparing training attributes", iteration=0)
         logger.info("TRAINING:00000: Training will start as soon as watermark is met.")
-        
+
         if (
-            self.rank == 0
-            and self._valid_dataloader is not None
+            self.rank == 0 and self._valid_dataloader is not None
         ):
             logger.info(f"Rank {self.rank} Running validation at batch_idx={0}")
             start = time.time()
@@ -270,10 +277,12 @@ class APEBenchServer(CommonInitMixIn,
             main_time = time.time() - start
             self._on_validation_end(0)
             total_time = time.time() - start
-            logger.info((f"Validation successfully completed at batch_idx=0. "
-                        f"\n\tTotal time: {total_time:.2f} seconds. Main time: {main_time:.2f} seconds. "
-                        f"\n\tRollout time: {total_time - main_time:.2f} seconds. "
-                        f"\n\tAverage time per batch: {np.mean(b_times):.2f} seconds. Max time per batch: {np.max(b_times):.2f} seconds."))
+            logger.info((
+                f"Validation successfully completed at batch_idx=0. "
+                f"\n\tTotal time: {total_time:.2f} seconds. Main time: {main_time:.2f} seconds. "
+                f"\n\tRollout time: {total_time - main_time:.2f} seconds. "
+                f"\n\tAverage time per batch: {np.mean(b_times):.2f} seconds. Max time per batch: {np.max(b_times):.2f} seconds."
+            ))
             self.memory_monitor.log_stats("After validation", iteration=1)
 
     @override
@@ -311,11 +320,10 @@ class APEBenchServer(CommonInitMixIn,
         delta_losses = \
             active_sampling.calculate_delta_loss(np.asarray(loss_per_sample))
         active_sampling.record_increments(sim_ids_list, time_step_list, delta_losses)
-        
+
         if batch_idx % self.save_model_freq == 0:
             logger.info(f"TRAINING:{batch_idx:05d}: Saving model.")
             self.checkpoint_model(batch_idx, suffix=batch_idx)
-
 
     @override
     def on_train_end(self):
@@ -336,21 +344,22 @@ class APEBenchServer(CommonInitMixIn,
     @override
     def on_validation_start(self, batch_idx):
         """Keep track of some variables for validation loop."""
-        if self.buffer.seen_ctr:
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                ax.bar(
-                    self.buffer.seen_ctr.keys(),
-                    self.buffer.seen_ctr.values(),
-                )
-                ax.set_xlabel("Sample Seen Count (log-scale)")
-                ax.set_ylabel("Frequency")
-                ax.set_xscale("log")
-                self.tb_logger.log_figure(
-                    "Seen_count_hist",
-                    fig,
-                    batch_idx
-                )
-                plt.close(fig)
+
+        fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+        ax.bar(
+            self.buffer.seen_ctr.keys(),
+            self.buffer.seen_ctr.values(),
+        )
+        ax.set_xlabel("Sample Seen Count (log-scale)")
+        ax.set_ylabel("Frequency")
+        ax.set_xscale("log")
+        self.tb_logger.log_figure(
+            "Seen_count_hist",
+            fig,
+            batch_idx
+        )
+        plt.close(fig)
+
         self.losses_per_sample = []
         self.batch_val_losses = []
         self.memory_monitor.log_stats("Before validation start", iteration=batch_idx)
@@ -371,11 +380,11 @@ class APEBenchServer(CommonInitMixIn,
         if not np.isfinite(batch_loss.item()):
             logger.error(f"NaN or Inf loss encountered at batch {valid_batch_idx}.")
             logger.error(f"LOSSES = {loss_per_sample}")
-        
+
         self.batch_val_losses.append(batch_loss.item())
         self.losses_per_sample.append(loss_per_sample.ravel())
         self.memory_monitor.log_stats(f"After val batch {valid_batch_idx}", iteration=batch_idx)
-        
+
     @override
     def on_validation_end(self, batch_idx):
         avg_val_loss = np.nanmean(self.batch_val_losses) if len(self.batch_val_losses) > 0 else np.nan
@@ -390,18 +399,18 @@ class APEBenchServer(CommonInitMixIn,
 
         if len(self.losses_per_sample) > 0:
             stats = {
-                    "max" : np.nanmax(self.losses_per_sample),
-                    "min" : np.nanmin(self.losses_per_sample),
-                    "std" : std_tmp,
-                    "mean_pstd" : mean_tmp + std_tmp,
-                    "mean_mean" : mean_tmp,
-                    "mean_mstd" : max(max(mean_tmp - std_tmp, 0), max(mean_tmp - 0.5 * std_tmp, 0)), 
-                    "p90" : np.nanpercentile(self.losses_per_sample, 90),
-                    "p75" : np.nanpercentile(self.losses_per_sample, 75),
-                    "p50" : np.nanpercentile(self.losses_per_sample, 50),
-                    "p25" : np.nanpercentile(self.losses_per_sample, 25),
-                    "p10" : np.nanpercentile(self.losses_per_sample, 10)
-                }
+                "max": np.nanmax(self.losses_per_sample),
+                "min": np.nanmin(self.losses_per_sample),
+                "std": std_tmp,
+                "mean_pstd": mean_tmp + std_tmp,
+                "mean_mean": mean_tmp,
+                "mean_mstd": max(max(mean_tmp - std_tmp, 0), max(mean_tmp - 0.5 * std_tmp, 0)),
+                "p90": np.nanpercentile(self.losses_per_sample, 90),
+                "p75": np.nanpercentile(self.losses_per_sample, 75),
+                "p50": np.nanpercentile(self.losses_per_sample, 50),
+                "p25": np.nanpercentile(self.losses_per_sample, 25),
+                "p10": np.nanpercentile(self.losses_per_sample, 10)
+            }
             for key, val in stats.items():
                 self.tb_logger.log_scalar(f"Loss_valid_stats/{key}", val, batch_idx)
 
@@ -413,7 +422,7 @@ class APEBenchServer(CommonInitMixIn,
 
                 fig, ax = plt.subplots(1, 1)
                 sc = ax.scatter(
-                    *self.valid_parameters[:,::2].T,
+                    *self.valid_parameters[:, [0, 2]].T,
                     c=self.losses_per_sample.reshape(-1, self.valid_dataset.nb_time_steps - 1).mean(-1),
                     cmap='Reds', vmin=0.0, s=100, alpha=0.5
                 )
@@ -427,7 +436,7 @@ class APEBenchServer(CommonInitMixIn,
                     batch_idx
                 )
                 plt.close(fig)
-        
+
         # after running regular validation, run the rollout from ICs
         if self.rank == 0 and self.valid_rollout > 1:
             logger.info(f"TRAINING:{batch_idx:05d}: Running validation rollout n={self.valid_rollout}.")
@@ -437,21 +446,20 @@ class APEBenchServer(CommonInitMixIn,
                 plot_rollout_loss=True, plot_prediction=True, one_small_batch=self.one_small_batch)
             logger.info(f"TRAINING:{batch_idx:05d}: Validation rollout function took {time.time() - start_val:.2f} seconds.")
             # self.validation_mesh_plot(batch_idx, valid_batch_idx, sim_ids_list, u_prev, u_next, u_next_hat)
-            self.memory_monitor.log_stats(f"After validation rollout", iteration=batch_idx)
+            self.memory_monitor.log_stats("After validation rollout", iteration=batch_idx)
             # when we want to add plots
             # predictions, rollout_loss = self.run_validation_rollout(batch_idx, memory_efficient=False)
             # plot predictions, plot rollout_loss
 
     def run_validation_rollout(
-        self, batch_idx, memory_efficient=True,
-        plot_rollout_loss=False, plot_prediction=False, one_small_batch=False
-        ):
+            self, batch_idx, memory_efficient=True,
+            plot_rollout_loss=False, plot_prediction=False, one_small_batch=False):
         """This loss is across all trajectories rolled out from their respective ICs.
         t[0] -> t[1] -> ... t[rollout]
         """
-
         if one_small_batch:
-            batch_size = self.dl_config["batch_size"] // 10
+            batch_size = 10
+            memory_efficient = False
 
         total = self.valid_dataset.num_samples
         if one_small_batch:
@@ -460,7 +468,7 @@ class APEBenchServer(CommonInitMixIn,
         if self.valid_rollout > self.nb_time_steps:
             rollout_known_loss = 0.0
         if plot_rollout_loss:
-            rollout_losses = [0.0 for _ in range(self.valid_rollout)]
+            rollout_losses = np.zeros(self.valid_rollout)
         # by batches
         start = time.time()
 
@@ -489,28 +497,31 @@ class APEBenchServer(CommonInitMixIn,
                         roll_idx = roll_idx[:batch_size]
                     u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
                     u_next = jnp.asarray(self.valid_dataset[roll_idx])
+                    # u_step shape is (B, mesh_shape)
                     loss = jnp.sum(jax.vmap(ex.metrics.nRMSE)(u_step, u_next))
                     rollout_loss += loss.item()
                     if plot_rollout_loss:
-                        rollout_losses[r-1] += loss.item()
+                        rollout_losses[r - 1] += loss.item()
                     del u_next
                     if self.valid_rollout > self.nb_time_steps and r == self.nb_time_steps:
                         rollout_known_loss = rollout_loss
             else:
                 trj_idx = np.vstack(rollout_idx).T
-                print(trj_idx.shape)
-                print(len(rollout_idx))
-                print(len(rollout_idx[0]))
+                if one_small_batch:
+                    trj_idx = trj_idx[:batch_size]
                 trj_batch = jnp.asarray(self.valid_dataset[trj_idx])
                 u_step = jax.vmap(
-                    ex.rollout(self.model, self.valid_dataset.nb_time_steps)
+                    ex.rollout(self.model, self.valid_rollout)
                 )(u_step)
+                # u step shape is (B, rollout, mesh_shape)
                 rollout_loss_batch = jax.vmap(jax.vmap(ex.metrics.nRMSE))(
                     u_step, trj_batch
-                ) # (B, nb_time_steps)
+                )  # (B, rollout)
+                rollout_losses += jnp.sum(rollout_loss_batch, axis=0)
                 rollout_loss += jnp.sum(rollout_loss_batch).item()
                 if self.valid_rollout > self.nb_time_steps:
-                    rollout_known_loss += jnp.sum(rollout_loss_batch[:,:self.nb_time_steps]).item()
+                    rollout_known_loss = jnp.sum(rollout_loss_batch[:self.valid_nb_time_steps]).item()
+
             if one_small_batch:
                 break
         logger.info(f"TRAINING:{batch_idx:05d}: Validation rollout took {time.time() - start:.2f} seconds.")
@@ -534,7 +545,7 @@ class APEBenchServer(CommonInitMixIn,
             )
         if plot_rollout_loss:
             rollout_losses = np.asarray(rollout_losses) / total
-            fig, ax = plt.subplots(1,1)
+            fig, ax = plt.subplots(1, 1)
             ax.plot(rollout_losses)
             ax.vlines(
                 self.nb_time_steps,
@@ -548,7 +559,7 @@ class APEBenchServer(CommonInitMixIn,
             ax.set_ylabel("nRMSE")
             ax.set_title(f"Validation rollout loss at batch {batch_idx}")
             self.tb_logger.log_figure(
-                f"Loss_valid/rollout_full",
+                "Loss_valid/rollout_full",
                 fig,
                 batch_idx
             )
@@ -557,7 +568,7 @@ class APEBenchServer(CommonInitMixIn,
             with jax.default_device(jax.devices("gpu")[0]):
                 u_step = ex.rollout(self.model, self.valid_dataset.nb_time_steps)(jnp.asarray(self.valid_dataset[0])).squeeze(1).T
             u_true = self.valid_dataset[:self.valid_dataset.nb_time_steps].squeeze(1).T
-            fig, ax = plt.subplots(1, 3, figsize=(19,6))
+            fig, ax = plt.subplots(1, 3, figsize=(19, 6))
             im1 = ax[0].imshow(u_step, vmin=-2.1, vmax=2.1, cmap='coolwarm', aspect='auto')
             ax[0].set_title("Prediction")
             ax[1].imshow(u_true, vmin=-2.1, vmax=2.1, cmap='coolwarm', aspect='auto')
@@ -569,7 +580,7 @@ class APEBenchServer(CommonInitMixIn,
             fig.colorbar(im2, ax=ax[2])
             fig.tight_layout()
             self.tb_logger.log_figure(
-                f"ValidationMeshPredictions",
+                "ValidationMeshPredictions",
                 fig,
                 batch_idx
             )
@@ -578,7 +589,7 @@ class APEBenchServer(CommonInitMixIn,
         # we can return the predictions and the errors
         # but we don't need them for now
         # return u_step, rollout_loss_batch
-        
+
     # def validation_mesh_plot(self, batch_idx, v_batch_idx, sim_ids, u_prev, u_next, u_next_hat):
     #     # only the first batch
     #     if v_batch_idx == 1:
@@ -615,21 +626,19 @@ class APEBenchServer(CommonInitMixIn,
     #                 extract(data)
     #                 for data in [u_prev, u_next, u_next_hat]
     #             ]
-                
     #             fig = putils.create_subplot_2d(
     #                 nrows,
     #                 self.scenario.domain_extent,
     #                 sim_ids,
     #                 tids,
     #                 meshes
-    #             )                
+    #             )
     #         if fig is not None:
     #             self.tb_logger.log_figure(
     #                 "ValidationMeshPredictions",
     #                 fig,
     #                 batch_idx
     #             )
-
     # def validation_loss_scatter_plot(self, batch_idx, loss_by_sim):
 
     #     if self.valid_parameters is not None:
@@ -661,7 +670,7 @@ class APEBenchServer(CommonInitMixIn,
             elif suffix is not None:
                 os.makedirs("checkpoints", exist_ok=True)
                 checkpoint_model_path = f"checkpoints/model_{suffix}.eqx"
-            
+
             # Create checkpoint dict with all necessary state
             checkpoint_dict = {
                 'model': self.model,
@@ -669,7 +678,7 @@ class APEBenchServer(CommonInitMixIn,
                 'opt_state': self.opt_state,
                 'batch_idx': batch_idx
             }
-            
+
             # Save using equinox serialization
             eqx.tree_serialise_leaves(checkpoint_model_path, checkpoint_dict)
             logger.info(f"TRAINING:{batch_idx:05d}: Saved model checkpoint to {checkpoint_model_path}")
@@ -682,18 +691,144 @@ class APEBenchServer(CommonInitMixIn,
         try:
             # Load checkpoint dict
             checkpoint_dict = eqx.tree_deserialise_leaves(self.checkpoint_model_path)
-            
+
             # Restore model state
             self.model = checkpoint_dict['model']
             self.optimizer = checkpoint_dict['optimizer']
             self.opt_state = checkpoint_dict['opt_state']
             self.batch_offset = checkpoint_dict['batch_idx']
             logger.info(f"Loaded checkpoint from {self.checkpoint_model_path}")
-         
+
         except Exception as e:
             logger.error(f"Error loading checkpoint: {e}")
-
 
     @override
     def _setup_environment_slurm(self):
         pass
+
+
+class APEBenchServerValidation(CommonInitMixIn):
+    def __init__(self, config_dict, study_path):
+        scenario_config = config_dict["study_options"]["scenario_config"]
+        self.scenario = MelissaSpecificScenario(**scenario_config)
+        self.dl_config = config_dict["dl_config"]
+        self.nb_time_steps = config_dict["study_options"]["nb_time_steps"]
+        self.model = self.scenario.get_network()
+        self.study_path = study_path
+        assert os.path.split(study_path)[-1] == config_dict['output_dir'], f"Study path {study_path} does not match output_dir {config_dict['output_dir']} in config."
+
+        self.valid_batch_size = self.dl_config.get("valid_batch_size", 32) * 10
+        self.valid_nb_time_steps = self.dl_config["valid_nb_time_steps"]
+        self.valid_rollout = self.dl_config.get("valid_rollout", self.valid_nb_time_steps - 1)
+        path_to_models = os.path.join(self.study_path, "checkpoints")
+        assert os.path.exists(path_to_models), f"Path to models {path_to_models} does not exist."
+        self.models_paths = sorted(glob.glob(os.path.join(path_to_models, "model_*.eqx")))
+        self.num_models = len(self.models_paths)
+        if self.num_models == 0:
+            raise ValueError("No model checkpoints found in the specified directory.")
+        optimizer = self.scenario.get_optimizer(faux=True)
+        self.checkpoint_dict = {
+            'model': self.model,
+            'optimizer': optimizer,
+            'opt_state': optimizer.init(eqx.filter(self.model, eqx.is_array)),
+            'batch_idx': 0
+        }
+
+    def load_validation_data(self, args=None):
+        if args is None:
+            self.valid_dataset, self.valid_parameters, self.valid_dataloader, self.valid_dataloader_rollout = dl_utils.load_validation_dataset(
+                validation_dir=self.dl_config["validation_directory"],
+                validation_file=self.dl_config["validation_file"],
+                nb_time_steps=self.valid_nb_time_steps,
+                batch_size=self.valid_batch_size,
+                rollout_size=self.valid_rollout,
+                num_samples=None
+            )
+        else:
+            assert len(args) == 4, "Expected 4 arguments for validation data loading."
+            self.valid_dataset, self.valid_parameters, self.valid_dataloader, self.valid_dataloader_rollout = args
+
+    def load_model_from_checkpoint(self, index=-1):
+        assert index < self.num_models, f"Index {index} out of range for models_paths with length {self.num_models}"
+        try:
+            # Load checkpoint
+            chkpt = eqx.tree_deserialise_leaves(self.models_paths[index], like=self.checkpoint_dict)
+            self.model = chkpt["model"]
+            self.model_at_batch = chkpt["batch_idx"]
+        except Exception as e:
+            print(f"Error loading checkpoint: {e}")
+            raise e
+
+    def run_validation(self):
+        """Keep track of some variables for validation loop."""
+
+        losses_per_sample = []
+        batch_val_losses = []
+        for batch_idx, batch in tqdm(enumerate(self.valid_dataloader), desc='Validation progress:', total=len(self.valid_dataloader)):
+            # with jax.default_device(jax.devices("gpu")[0]):
+            u_step = jnp.asarray(self.valid_dataset[batch[0]])
+            u_step = jax.jit(jax.vmap(self.model), donate_argnums=0)(u_step)
+            u_next = jnp.asarray(self.valid_dataset[batch[1]])
+            loss_per_sample = jnp.mean((u_step - u_next) ** 2, axis=tuple(range(1, self.scenario.num_spatial_dims + 2)))
+            batch_loss = jnp.mean(loss_per_sample)
+
+            if not np.isfinite(batch_loss.item()):
+                print(f"NaN or Inf loss encountered at batch {batch_idx}.")
+                print(f"LOSSES = {loss_per_sample}")
+
+            batch_val_losses.append(batch_loss.item())
+            losses_per_sample.append(loss_per_sample.ravel())
+
+        avg_val_loss = np.nanmean(batch_val_losses) if len(batch_val_losses) > 0 else np.nan
+
+        losses_per_sample = np.hstack(losses_per_sample)
+        mean_tmp = np.nanmean(losses_per_sample)
+        std_tmp = np.nanstd(losses_per_sample)
+
+        if len(losses_per_sample) > 0:
+            stats = {
+                "max": np.nanmax(losses_per_sample),
+                "min": np.nanmin(losses_per_sample),
+                "std": std_tmp,
+                "mean_pstd": mean_tmp + std_tmp,
+                "mean_mean": mean_tmp,
+                "mean_mstd": max(max(mean_tmp - std_tmp, 0), max(mean_tmp - 0.5 * std_tmp, 0)),
+                "p90": np.nanpercentile(losses_per_sample, 90),
+                "p75": np.nanpercentile(losses_per_sample, 75),
+                "p50": np.nanpercentile(losses_per_sample, 50),
+                "p25": np.nanpercentile(losses_per_sample, 25),
+                "p10": np.nanpercentile(losses_per_sample, 10)
+            }
+
+        total = self.valid_dataset.num_samples
+        rollout_loss = 0.0
+        rollout_losses = np.zeros(self.valid_rollout)
+        rollout_losses_all = np.zeros((self.valid_dataset.num_samples, self.valid_rollout))
+        i = 0
+        for ic_idx, rollout_idx in tqdm(self.valid_dataloader_rollout, desc='V. rollout progress:', total=len(self.valid_dataloader_rollout)):
+            # with jax.default_device(jax.devices("gpu")[0]):
+            u_step = jnp.asarray(self.valid_dataset[ic_idx])
+            trj_idx = np.vstack(rollout_idx).T
+            trj_batch = jnp.asarray(self.valid_dataset[trj_idx])
+            u_step = jax.vmap(
+                ex.rollout(self.model, self.valid_rollout)
+            )(u_step)
+            rollout_loss_batch = jax.vmap(jax.vmap(ex.metrics.nRMSE))(
+                u_step, trj_batch
+            )
+            rollout_losses_all[i:i + len(ic_idx), :] = rollout_loss_batch
+            i += len(ic_idx)
+            rollout_losses += jnp.sum(rollout_loss_batch, axis=0)
+            rollout_loss += jnp.sum(rollout_loss_batch).item()
+
+        rollout_loss = rollout_loss / total / self.valid_rollout
+        rollout_losses = np.asarray(rollout_losses) / total
+
+        return avg_val_loss, losses_per_sample, stats, rollout_loss, rollout_losses, rollout_losses_all
+
+    def rollout_sample(self, index):
+        sample = self.valid_dataset[index * self.valid_dataset.nb_time_steps:(index + 1) * self.valid_dataset.nb_time_steps]
+        # with jax.default_device(jax.devices("gpu")[0]):
+        sample = jnp.asarray(sample)
+        prediction = ex.rollout(self.model, self.valid_dataset.nb_time_steps)(sample[0])
+        return sample, prediction

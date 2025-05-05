@@ -1,5 +1,6 @@
 import jax
 import apebench
+import optax
 import ic_generation as icgen
 
 def get_exponax_stepper(scenario, **stepper_config):
@@ -30,7 +31,7 @@ class MelissaSpecificScenario:
             self.stepper = get_exponax_stepper(self.scenario, **stepper_config)
         else:
             self.stepper = self.scenario.get_ref_stepper()
-        
+
         print(self.stepper)
 
         self.network_config = network_config
@@ -56,7 +57,9 @@ class MelissaSpecificScenario:
             key=jax.random.PRNGKey(0)
         )
 
-    def get_optimizer(self, with_lr_scheduler=False):
+    def get_optimizer(self, with_lr_scheduler=False, faux=False):
+        if faux:
+            return apebench.components.optimizer_dict["adam"]("adam;10_000;warmup_cosine;0.0;1e-3;2_000")(optax.constant_schedule(1e-3))
         optim_args = self.scenario.optim_config.split(";")
         optimizer_name = optim_args[0]
         num_training_steps = int(optim_args[1])
@@ -90,7 +93,6 @@ class MelissaSpecificScenario:
             "Adjust this in `['scenario_config']['stepper_config']` option."
 
         return ic_maker(**input_fn_config)
-    
+
     def __repr__(self):
         return str(self.__dict__)
-

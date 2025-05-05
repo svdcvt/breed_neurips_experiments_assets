@@ -19,9 +19,9 @@ def loss_fn(model, x, y):
 @eqx.filter_jit(donate='all')
 def update_fn(model, optimizer, x, y, opt_state):
     (loss, loss_per_sample), grads = eqx.filter_value_and_grad(
-            loss_fn,
-            has_aux=True
-        )(model, x, y)
+        loss_fn,
+        has_aux=True
+    )(model, x, y)
 
     updates, new_state = optimizer.update(grads, opt_state, model)
     new_model = eqx.apply_updates(model, updates)
@@ -194,9 +194,9 @@ class AutoregressiveTrajectoryDataset:
                 self.batched_indices_rollout.append(self.get_rollout(i, j, rollout_size))
 
     def batch_generator(self, rollout_size: int = -1):
-        if rollout_size != -1: # want rollout batches
+        if rollout_size != -1:  # want rollout batches
             return self.batched_indices_rollout
-        else: # want 1to1 batches
+        else:  # want 1to1 batches
             return self.batched_indices
 
 
@@ -224,7 +224,7 @@ def load_validation_dataset(validation_dir,
             traj_path = None
         else:
             logger.info(f"Found trajectory file: {traj_path}")
-    
+
     params_path = None
     for file in files:
         if "traj" in file.lower() and file.endswith(".npy") and traj_path is None:
@@ -245,7 +245,7 @@ def load_validation_dataset(validation_dir,
             batch_size=batch_size,
             rollout_size=rollout_size
         )
-        
+
         valid_dataloader = valid_dataset.batch_generator()
         if rollout_size != -1:
             valid_dataloader_rollout = valid_dataset.batch_generator(rollout_size=rollout_size)
@@ -256,7 +256,7 @@ def load_validation_dataset(validation_dir,
     else:
         logger.warning(f"Validation set not found at {traj_path}"
                        "\nPlease set validation_directory in configuration.")
-    
+
     return valid_dataset, valid_parameters, valid_dataloader, valid_dataloader_rollout
 
 
@@ -296,7 +296,7 @@ def merge_npy_files(directory_path, output_file="all_trajectories.npy"):
         file_path = os.path.join(directory_path, file)
         array = np.load(file_path, allow_pickle=False, mmap_mode="r")
         rows = array.shape[0]
-        merged_array[current_index : current_index + rows] = array
+        merged_array[current_index:current_index + rows] = array
         current_index += rows
         # Delete the read file
         os.remove(file_path)

@@ -217,11 +217,11 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
             else:
                 # Plot additional parameters in red
                 scatter2 = ax.scatter(additional_parameters[:, j], additional_parameters[:, i], 
-                                   alpha=1, s=5, color='red', marker='v',label='Validation')
+                                   alpha=0.1, s=1, color='red', marker='v',label='Validation')
                 scatter1 = ax.scatter(parameters[~is_bs, j], parameters[~is_bs, i], 
                                        c='silver',
-                                       s=5, label='Random',
-                                       alpha=0.5 if n_intervals > 1 else 0.9,
+                                       s=10, label='Random',
+                                       alpha=0.2 if n_intervals > 1 else 0.9,
                                        )
                 for rrr in range(1,n_intervals):
                     mask = r_ids == rrr
@@ -230,8 +230,9 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
                                        c=r_ids[mask],
                                        cmap=custom_cmap_scatter,
                                         norm=norm_scatter,
-                                       s=10, label=f'R{rrr+1}',
-                                       edgecolor='black', linewidth=0.1)
+                                       s=30, label=f'R{rrr+1}',
+                                       edgecolor='black', linewidth=0.1,
+                                       alpha=0.5)
                 ax.set_xlim(min_params_all[j], max_params_all[j])
                 ax.set_ylim(min_params_all[i], max_params_all[i])
             
