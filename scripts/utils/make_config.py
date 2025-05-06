@@ -8,10 +8,7 @@ from pprint import pprint
 import utility as utl
 
 
-COMMON_VALIDATION_DIRECTORY = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
-TEMPORAL_HORIZON = 100
 DIM = 1
-COMMON_STUDY_DIRECTORY = "~/apebench_test/experiments/sets/"
 GENERAL_SEED = 1234
 
 @dataclass
@@ -30,50 +27,84 @@ class ScenarioConfig:
                 - mode (str): Mode of the scenario (default: "diff").
                 - pde (str): PDE type (default: "ks_cons").
                 - diffusion_gamma (float): Diffusion gamma value (default: -2).
+                - dispersion_gamma (float): Dispersion gamma value (default: -14).
                 - hyp_diffusion_gamma (float): Hyper diffusion gamma value (default: -18).
                 - convection_delta (float): Convection delta value (default: -1).
+                - convection_sc_delta (float): Convection SC delta value (default: -2).
+                - gradient_norm_delta (float): Gradient norm delta value (default: -6).
+                - ic_max_one (bool): Whether the maximum is determined by the number of waves (default: False).
         """
         self.base_scale = base_scale
+        self.num_points = 160 * self.base_scale
+        self.num_spatial_dims = DIM
+
         self.num_waves = num_waves
+
+        self.l_bounds = [-1.0, 0.0] * self.num_waves
+        self.u_bounds = [1.0, round(2 * math.pi, 4)] * self.num_waves
 
         scenario_mode = kwargs.get("mode", "diff")
         scenario_pde = kwargs.get("pde", "ks_cons")
-        if scenario_mode == "diff" and scenario_pde == "ks_cons":
-            # default is -2 -18 -1
-            # easier is -3 -50 -1
-            # harder is -2 -16 -1
-            diffusion_gamma = kwargs.get("diffusion_gamma", -2)
-            hyp_diffusion_gamma = kwargs.get("hyp_diffusion_gamma", -18)
-            convection_delta = kwargs.get("convection_delta", -1)
+        if scenario_mode == "diff":
+            if scenario_pde == "ks_cons":
+                # default is -2 -18 -1
+                # easier is -3 -50 -1
+                # harder is -2 -16 -1
+                diffusion_gamma = kwargs.get("diffusion_gamma", -2)
+                hyp_diffusion_gamma = kwargs.get("hyp_diffusion_gamma", -18)
+                convection_delta = kwargs.get("convection_delta", -1)
+                coefs_ = {
+                    "diffusion_gamma": diffusion_gamma * self.base_scale ** 2,
+                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale ** 4,
+                    "convection_delta": convection_delta * self.base_scale
+                }
+                rel = hyp_diffusion_gamma / diffusion_gamma                
+                default_rel = rel / 9
+            elif scenario_pde == "ks":
+                # default is -1.2 -15 -6 , rel 12.5
+                # harder is -3.3 -30 -6, rel 9.09
+                diffusion_gamma = kwargs.get("diffusion_gamma", -1.2)
+                hyp_diffusion_gamma = kwargs.get("hyp_diffusion_gamma", -15)
+                gradient_norm_delta = kwargs.get("gradient_norm_delta", -6)
+                coefs_ = {
+                    "diffusion_gamma": diffusion_gamma * self.base_scale ** 2,
+                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale ** 4,
+                    "gradient_norm_delta": gradient_norm_delta * self.base_scale ** 2
+                }
+                rel = hyp_diffusion_gamma / diffusion_gamma
+                default_rel = rel / 12.5
+            elif scenario_pde == "kdv":
+                # default is -14 -9 -2 , rel 0.64
+                # harder is -20 -5 -2 , rel 0.25
+                dispersion_gamma = kwargs.get("dispersion_gamma", -14)
+                hyp_diffusion_gamma = kwargs.get("hyp_diffusion_gamma", -9)
+                convection_sc_delta = kwargs.get("convection_sc_delta", -2)
+                coefs_ = {
+                    "dispersion_gamma": dispersion_gamma * self.base_scale ** 3,
+                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale ** 4,
+                    "convection_sc_delta": convection_sc_delta * self.base_scale
+                }
+                rel = hyp_diffusion_gamma / dispersion_gamma
+                default_rel = rel / 0.64
+            else:
+                raise NotImplementedError(f"Scenario PDE {scenario_pde} is not implemented.")
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"Scenario mode {scenario_mode} is not implemented.")
+
+        self.scenario_name = f"{scenario_mode}_{scenario_pde}"
 
         ic_params = ';'.join([f"<amp{i+1}>;<phs{i+1}>" for i in range(self.num_waves)])
         # the maximum is determined by number of waves!
         # we assume that the amplitude interval is [-1, 1]
         # so the maximum possible value in IC is 1 * num_waves
         # the generated IC will be divided by that value
-        ic_max_one = "true"
+        ic_max_one = "false" if kwargs.get("ic_max_one", True) else "true"
 
-        self.l_bounds = [-1.0, 0.0] * self.num_waves
-        self.u_bounds = [1.0, round(2 * math.pi, 4)] * self.num_waves
-
-        self.num_points = 160 * self.base_scale
-        self.num_spatial_dims = DIM
-        self.scenario_name = f"{scenario_mode}_{scenario_pde}"
+        
         self.ic_config = f"sine_sup;{ic_params};false;{ic_max_one}"
-
-        if scenario_mode == "diff" and scenario_pde == "ks_cons":
-            self.diffusion_gamma = diffusion_gamma * self.base_scale ** 2
-            self.hyp_diffusion_gamma = hyp_diffusion_gamma * self.base_scale ** 4
-            self.convection_delta = convection_delta * self.base_scale
-        else:
-            raise NotImplementedError()
 
         # scenario identifier
         self.shorthand = f"{self.scenario_name}"
-        rel = hyp_diffusion_gamma / diffusion_gamma
-        default_rel = rel / 9
         s = str(round(default_rel, 1)).replace('.', '')
         if default_rel > 1:
             diff_suffix = f"x{s}_easier"
@@ -82,12 +113,18 @@ class ScenarioConfig:
         else:
             diff_suffix = "default"
         # dynamicity
-        self.shorthand += f"__{self.num_waves}w_{diff_suffix}"
+        self.shorthand += f"__{self.num_waves}w_{diff_suffix}" + ("_max1" if ic_max_one == "true" else "")
         # size
         self.shorthand += f"_{self.num_spatial_dims}d_x{self.base_scale}"
 
         # example:
         # diff_ks_cons__3w_x09_easier_1d_x5
+        self.scenario_config = {
+            "scenario_name": self.scenario_name,
+            "ic_config": self.ic_config,
+            "num_points": self.num_points,
+        } | coefs_ 
+
 
 @dataclass
 class DLConfig:
@@ -116,6 +153,7 @@ class DLConfig:
                 - lr_peak (float): Peak learning rate (default: lr_start).
                 - lr_interval (float): Learning rate interval percentage (default: 0.99).
                 - nb_batches_update (int): Number of batches for update (default: 100).
+                - temporal_horizon (int): Temporal horizon for the model (default: 100).
         """
 
         activation = kwargs.get("activation", "relu")
@@ -128,17 +166,17 @@ class DLConfig:
         self.nb_batches_update = kwargs.get("nb_batches_update", 100)
         self.valid_batch_size = kwargs.get("valid_batch_size", 2 * batch_size)
         # it should include the initial 0-step
-        self.valid_nb_time_steps = TEMPORAL_HORIZON + 1
+        self.valid_nb_time_steps = kwargs.get("temporal_horizon", 100) + 1
         self.valid_num_samples = kwargs.get("valid_num_samples", 100)
         self.valid_rollout = self.valid_nb_time_steps - 1
 
         self.batch_size = batch_size
         if isinstance(nb_time_steps, int):
             self.nb_time_steps = nb_time_steps
-            self.vision = round((self.valid_nb_time_steps - 1) / nb_time_steps, 1)
+            self.vision = round((self.valid_nb_time_steps - 1) / nb_time_steps, 2)
         elif isinstance(nb_time_steps, float):
             self.nb_time_steps = round((self.valid_nb_time_steps - 1) * nb_time_steps)
-            self.vision = round(nb_time_steps, 1)
+            self.vision = round(nb_time_steps, 2)
         else:
             raise NotImplementedError(f"nb_time_steps should be int or float, but got {type(nb_time_steps)}")
 
@@ -393,15 +431,25 @@ class ActiveSamplingConfig:
             fitness_min_nb_time_steps = round(0.25 * dl.nb_time_steps)
             min_nb_finished_simulations = round((melissa.per_server_watermark // dl.nb_time_steps) * 2)
             resample_each_nn_updates = buffer_samples * 2
+        elif regime == "mixed":
+            sigma = 0.1
+            start = 0.5
+            end = 0.9
+            breakpoint_ = 3
+            sliding_window_size = buffer_samples
+            fitness_min_nb_time_steps = round(0.33 * dl.nb_time_steps)
+            min_nb_finished_simulations = round((melissa.per_server_watermark // dl.nb_time_steps) * 2)
+            resample_each_nn_updates = buffer_samples * 3
         elif regime == "uniform":
-            sigma = 0.5
+            # same as mixed but r-value = 0
+            sigma = 0.1
             start = 0.0
             end = 0.0
-            breakpoint_ = 1
+            breakpoint_ = 3
             sliding_window_size = buffer_samples
-            fitness_min_nb_time_steps = round(0.9 * dl.nb_time_steps)
-            min_nb_finished_simulations = buffer_samples
-            resample_each_nn_updates = buffer_samples * 5
+            fitness_min_nb_time_steps = round(0.33 * dl.nb_time_steps)
+            min_nb_finished_simulations = round((melissa.per_server_watermark // dl.nb_time_steps) * 2)
+            resample_each_nn_updates = buffer_samples * 3
         elif regime == "no_resampling":
             sigma = 0.5
             start = 0.0
@@ -447,11 +495,12 @@ class StudyConfig:
                  dl: DLConfig,
                  melissa: MelissaConfig,
                  active_sampling: ActiveSamplingConfig,
-                 common_study_directory: str = COMMON_STUDY_DIRECTORY,
-                 common_validation_directory: str = COMMON_VALIDATION_DIRECTORY
+                 common_study_directory: str,
+                 common_valid_directory: str
                  ):
         self.scenario = scenario
         self.dl = dl
+
         self.melissa = melissa
         self.active_sampling = active_sampling
         self.seed = GENERAL_SEED
@@ -461,7 +510,7 @@ class StudyConfig:
 
         self.validation_subname = f"{self.scenario.shorthand}"
         self.validation_directory = \
-            os.path.join(common_validation_directory, self.validation_subname)
+            os.path.join(common_valid_directory, self.validation_subname)
         if os.path.exists(os.path.join(self.validation_directory, "trajectories", "all_trajectories.npy")):
             print(f"WARNING: Validation file already exists in: {self.validation_directory}. Most probably, you don't need to run the offline study again.")
             self.validation_exists_flag = True
@@ -499,14 +548,8 @@ class StudyConfig:
             {
                 "output_dir":  self.validation_directory,
                 "study_options": {
-                    "scenario_config": {
-                        "scenario_name": self.scenario.scenario_name,
-                        "ic_config": self.scenario.ic_config,
-                        "network_config": "MLP;1;1;relu",
-                        "num_points": self.scenario.num_points,
-                        "diffusion_gamma": self.scenario.diffusion_gamma,
-                        "hyp_diffusion_gamma": self.scenario.hyp_diffusion_gamma,
-                        "convection_delta": self.scenario.convection_delta
+                    "scenario_config": self.scenario.scenario_config | {
+                        "network_config": "MLP;1;1;relu"
                     },
                     "parameter_sweep_size": self.melissa.total_nb_simulations_offline,
                     "nb_time_steps": self.dl.valid_nb_time_steps - 1, # not counting IC
@@ -516,7 +559,7 @@ class StudyConfig:
                     "seed": self.seed * 100 + 42,
                 },
                 "launcher_config": {
-                    "job_limit": self.melissa.nb_clients + 1,
+                    # "job_limit": self.melissa.nb_clients + 1,
                     "http_port": int(f"88{np.random.randint(0, 10)}8"),
                 }
             }
@@ -531,15 +574,9 @@ class StudyConfig:
             {
                 "output_dir":  self.study_directory,
                 "study_options": {
-                    "scenario_config": {
-                        "scenario_name": self.scenario.scenario_name,
-                        "ic_config": self.scenario.ic_config,
+                    "scenario_config": self.scenario.scenario_config | {
                         "network_config": self.dl.network_config,
-                        "optim_config": self.dl.optim_config,
-                        "num_points": self.scenario.num_points,
-                        "diffusion_gamma": self.scenario.diffusion_gamma,
-                        "hyp_diffusion_gamma": self.scenario.hyp_diffusion_gamma,
-                        "convection_delta": self.scenario.convection_delta
+                        "optim_config": self.dl.optim_config
                     },
                     "parameter_sweep_size": self.melissa.total_nb_simulations_online,
                     "nb_time_steps": self.dl.nb_time_steps,
@@ -575,91 +612,6 @@ class StudyConfig:
         config["client_config"]["preprocessing_commands"].append(f"export CONFIG_FILE={config_path}")
         return config, config_path
 
-
-def example():
-    """
-    Example of how to use the configuration classes to generate a study configuration.
-    """
-
-    scenario_config = {
-            "base_scale": 5,
-            "num_waves": 3
-    }
-    # scenario_kwargs = dict()
-    scenario_kwargs = {
-            "mode": "diff",
-            "pde": "ks_cons",
-            "diffusion_gamma": -2,
-            "hyp_diffusion_gamma": -18,
-            "convection_delta": -1
-    }
-
-    dl_config = {
-            "model_name": "UNet",
-            "num_channels": 6,
-            "num_blocks": 5,
-            "lr_start": 1e-3,
-            "batch_size": 16,
-            "valid_batch_size": 32,
-            "valid_num_samples": 100
-    }
-
-    dl_kwargs = dict()
-    # dl_kwargs = {
-    #         "activation": "relu",
-    #         "lr_peak": 1e-2,
-    #         "lr_interval": 0.99,
-    #         "nb_batches_update": 100,
-    #         "nb_time_steps": 0.5
-    # }
-
-    scenario = ScenarioConfig(**scenario_config, **scenario_kwargs)
-    dl = DLConfig(**dl_config, **dl_kwargs)
-
-    melissa_config = {
-            "total_nb_simulations": -1,
-            "per_server_watermark_num_sim": 10,
-            "buffer_size_pct": 0.25,
-            "zmq_pct": 0.01,
-            "timeout_minutes": 30,
-            "nb_clients": 14,
-            "timer_delay": 5
-    }
-    melissa_kwargs = dict()
-    # melissa_kwargs = {
-    #         "memory_bytes_study": 0,
-    #         "memory_buffer_bytes_study": 0
-    # }
-    melissac = MelissaConfig(scenario, dl, **melissa_config, **melissa_kwargs)
-
-    # active_sampling_kwargs = {
-    #         "nn_updates": 100,
-    #         "min_nb_finished_simulations": 100,
-    #         "delta_loss_min_nb_time_steps": 90,
-    #         "sigma": 0.05,
-    #         "start": 0.9,
-    #         "end": 0.9,
-    #         "breakpoint": 3,
-    #         "sliding_window_size": 50,
-    # }
-    active_sampling_kwargs = dict()
-    active_sampling_regime = "precise"
-
-    if len(active_sampling_kwargs) == 0:
-        active_sampling = ActiveSamplingConfig(active_sampling_regime, scenario, dl, melissac, **active_sampling_kwargs)
-    else:
-        active_sampling = ActiveSamplingConfig("custom", scenario, dl, melissac, **active_sampling_kwargs)
-
-
-    study_config = StudyConfig(scenario, dl, melissac, active_sampling)
-    config_offline, cfg_off_path = study_config.generate_offline()
-    config_online, cfg_on_path = study_config.generate_online()
-    
-    with open(cfg_off_path, 'w') as f:
-        json.dump(config_offline, f, indent=4)
-    with open(cfg_on_path, 'w') as f:
-        json.dump(config_online, f, indent=4)
-
 def test_scenario_config(scenario_config):    
     scenario = ScenarioConfig(**scenario_config)
     print(f"Created scenario: {scenario.shorthand}")
@@ -678,7 +630,9 @@ def test_active_sampling_config(active_sampling_config, scenario, dl, melissa):
     print(f"Created Active Sampling config: {active.shorthand}")
     return active
 def test_study_config(scenario, dl, melissa, active):
-    study = StudyConfig(scenario, dl, melissa, active)
+    study = StudyConfig(scenario, dl, melissa, active,
+                        common_study_directory="./",
+                        common_valid_directory="./")
     print(f"Created Study config: {study.study_directory}")
     return study
 

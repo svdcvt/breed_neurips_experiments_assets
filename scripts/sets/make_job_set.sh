@@ -24,19 +24,18 @@ if [ ! -d "$given_folder" ]; then
 	echo "The provided path is not a directory."
 	exit 1
 fi
+# Get the absolute path of the given folder
+abs_path=$(realpath "$given_folder")
 
-name=$(basename "$1")
-script_name="bigf_set_${name}.sh"
+script_name="${abs_path}/bigf_set.sh"
 # Check if the script already exists
 if [ -f "$script_name" ]; then
 	echo "The script $script_name already exists. Please remove it or choose a different name."
 	exit 1
 fi
 
-# Get the absolute path of the given folder
-abs_path=$(realpath "$given_folder")
-# Find all config files in the given folder and its subdirectories
-config_files=($(find "$abs_path" -type f -name "config*mpi.json"))
+# Find all config files in the given folder and its subdirectories without offline in the name
+config_files=($(find "$abs_path" -type f -name "config*mpi.json" ! -name "*offline*"))
 # Check if any config files were found
 if [ ${#config_files[@]} -eq 0 ]; then
 	echo "No config files found in the given folder."
@@ -54,14 +53,13 @@ total_time=$((num_config_files * 1))
 echo "Total time needed to run all config files: $total_time hours"
 
 first_echo="
-#OAR -n melissa-study-${name}
+#OAR -n melissa-study-bench
 #OAR -l /nodes=1/core=10/gpu=1,walltime=$total_time:00:00
 #OAR -p gpumodel='V100'
 #OAR --project pr-melissa
 
 source /applis/environments/singularity_env.sh
 singularity_container=\"/bettik/PROJECTS/pr-melissa/COMMON/containers/April23/melissa-active-sampling-with-apebench-cuda.sif\"
-dir_set=\"$abs_path\"
 
 "
 

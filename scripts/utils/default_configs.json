@@ -61,13 +61,14 @@
     },
     "launcher_config": {
         "scheduler": "openmpi",
-        "scheduler_arg_server": ["-n", "1", "--oversubscribe"],
+        "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "2400"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
         "server_timeout": 200,
         "timer_delay": 1,
         "fault_tolerance": false,
         "verbosity": 2,
-        "std_output": true
+        "std_output": true,
+        "job_limit": 32
     },
     "client_config": {
         "executable_command": "$APEBENCH_ROOT/common/solver.py",

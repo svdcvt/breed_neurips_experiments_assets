@@ -4,14 +4,16 @@ import os
 import pprint
 import sys
 import utility as utl
-
-
-COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
+import pandas as pd
 
 def create_from(
-    scenario_config, dl_config, melissa_config,
+    scenario_config,
+    dl_config,
+    melissa_config,
+    common_study_directory,
+    common_valid_directory,
     scenario_kwargs=dict(), dl_kwargs=dict(), melissa_kwargs=dict(),
-    active_sampling_kwargs=dict()
+    active_sampling_kwargs=dict(),
     ):
     scenario = ScenarioConfig(**scenario_config, **scenario_kwargs)
     dl = DLConfig(**dl_config, **dl_kwargs)
@@ -19,11 +21,12 @@ def create_from(
     if len(active_sampling_kwargs) == 0:
         active_sampling_kwargs["regime"] = "uniform"
     active_sampling = ActiveSamplingConfig(scenario, dl, melissac, **active_sampling_kwargs)
-    study_config = StudyConfig(scenario, dl, melissac, active_sampling, common_study_directory=COMMON_STUDY_DIRECTORY)
+    study_config = StudyConfig(scenario, dl, melissac, active_sampling,
+                               common_study_directory, common_valid_directory)
     config_online, cfg_on_path = study_config.generate_online()
     if not study_config.validation_exists_flag:
         config_offline, cfg_off_path = study_config.generate_offline()
-        return config_offline, cfg_off_path, config_online, cfg_on_path, study_config.study_directory
+        return config_offline, cfg_off_path, config_online, cfg_on_path, os.path.dirname(study_config.study_directory)
     return None, None, config_online, cfg_on_path, os.path.dirname(study_config.study_directory)
 
 def save_configs(
@@ -35,10 +38,13 @@ def save_configs(
     if not test:
         os.makedirs(main_dir, exist_ok=True)
         if config_offline is not None:
+            print(os.path.join(main_dir, cfg_off_path))
             with open(os.path.join(main_dir, cfg_off_path), 'w') as f:
                 json.dump(config_offline, f, indent=4)
-        with open(os.path.join(main_dir, cfg_on_path), 'w') as f:
-            json.dump(config_online, f, indent=4)
+        if config_online is not None:
+            print(os.path.join(main_dir, cfg_on_path))
+            with open(os.path.join(main_dir, cfg_on_path), 'w') as f:
+                json.dump(config_online, f, indent=4)
     else:
         print("=" * 120)
         print("Offline config path:", cfg_off_path)
@@ -49,10 +55,24 @@ def save_configs(
         print("=" * 120)
 
 if __name__ == "__main__":
-    # the script should be run from hostname bigfoot, check that
-    if os.uname()[1] != "bigfoot":
-        raise RuntimeError("This script should be run from hostname bigfoot")
+    
+    if len(sys.argv) > 1:
+        is_test = sys.argv[1] == "test"
+        if is_test:
+            print("Running in test mode")
+    else:
+        is_test = False
+        print("Running in normal mode")
 
+    if os.uname()[1] == "bigfoot":
+        COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
+        COMMON_VALID_DIRECTORY = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
+    elif "dahu" in os.uname()[1]:
+        COMMON_STUDY_DIRECTORY = "/home-bigfoot/dymchens-ext/apebench_test/experiments/set/"
+        COMMON_VALID_DIRECTORY = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
+    else:
+        raise ValueError("Unknown machine")
+    
     scenario_config = {
                 "base_scale": 5,
                 "num_waves": 3
@@ -62,18 +82,18 @@ if __name__ == "__main__":
             "pde": "ks_cons",
             "diffusion_gamma": -3,
             "hyp_diffusion_gamma": -50,
-            "convection_delta": -1
+            "convection_delta": -1,
+            "ic_max_one": True
     }
-
     dl_config = {
             "model_name": "UNet",
             "num_channels": 6,
             "num_blocks": 5,
             "lr_start": 1e-3,
             "batch_size": 256,
-            "nb_time_steps": 0.75
+            "nb_time_steps": 0.75,
+            "temporal_horizon": 100
     }
-
     dl_kwargs = {
             "valid_num_samples": 100,
             "valid_batch_size": 256 * 2,
@@ -82,7 +102,6 @@ if __name__ == "__main__":
             "lr_interval": 2500,
             "nb_batches_update": 200
     }
-
     melissa_config = {
             "total_nb_simulations_training": 2000,
             "total_nb_simulations_validation": 1500,
@@ -90,39 +109,50 @@ if __name__ == "__main__":
             "buffer_num_sim": 100,
             "buffer_size_pct": 0.05,
             "zmq_pct": 0.01,
-            "timeout_minutes": 50,
-            "nb_clients": 6,
+            "timeout_minutes": 60,
+            "nb_clients": 8,
             "timer_delay": 2
     }
     melissa_kwargs = {
-        # "memory_buffer_bytes_study":  ,
-        # "memory_validation_bytes_file": utl.tob(1),
-        # "memory_bytes_study": utl.tob(30)
         }
-
     active_sampling_kwargs = {
-            # "regime": "precise",
-            # "nn_updates": 100,
-            # "min_nb_finished_simulations": 100,
-            # "delta_loss_min_nb_time_steps": 90,
-            # "sigma": 0.05,
-            # "start": 0.9,
-            # "end": 0.9,
-            # "breakpoint": 3,
-            # "sliding_window_size": 50,
+            "regime": "uniform"
     }
-    if len(sys.argv) > 1:
-        is_test = sys.argv[1] == "test"
-        if is_test:
-            print("Running in test mode")
-    else:
-        is_test = False
-        print("Running in normal mode")
+    
+    # fixed 
+    # network architecture
+    # melissa settings
+    # base scale
+    
+    # changing
+    # different scenarios | uniform vs mixed
+    # different active sampling regimes | for chosen pdes later
 
-    for regime in ["uniform", "precise", "broad", "no_resampling"]:
-        active_sampling_kwargs["regime"] = regime
-        config_offline, cfg_off_path, config_online, cfg_on_path, main_dir = create_from(
-            scenario_config, dl_config, melissa_config,
-            scenario_kwargs, dl_kwargs, melissa_kwargs, active_sampling_kwargs
-        )
-        save_configs(config_offline, config_online, cfg_off_path, cfg_on_path, main_dir, test=is_test)
+    set_pde = pd.read_csv("./pde_set.csv")
+    
+    for row in set_pde.iterrows():
+        row = row[1]
+        scenario_config["num_waves"] = row["num_waves"]
+        scenario_kwargs["pde"] = row["pde"]
+        scenario_kwargs["diffusion_gamma"] = row["diffusion_gamma"]
+        scenario_kwargs["dispersion_gamma"] = row["dispersion_gamma"]
+        scenario_kwargs["hyp_diffusion_gamma"] = row["hyp_diffusion_gamma"]
+        scenario_kwargs["convection_delta"] = row["convection_delta"]
+        scenario_kwargs["convection_sc_delta"] = row["convection_sc_delta"]
+        scenario_kwargs["ic_max_one"] = row["ic_max_one"]
+        dl_config["temporal_horizon"] = row["temporal_horizon"]
+        if row["temporal_horizon"] == 200:
+            melissa_config["timeout_minutes"] = 120
+        else:
+            melissa_config["timeout_minutes"] = 60
+
+        for regime in ["uniform", "mixed", "precise", "broad", "no_resampling"]:
+            active_sampling_kwargs["regime"] = regime
+            config_offline, cfg_off_path, config_online, cfg_on_path, main_dir = create_from(
+                scenario_config, dl_config, melissa_config,
+                COMMON_STUDY_DIRECTORY, COMMON_VALID_DIRECTORY,
+                scenario_kwargs, dl_kwargs, melissa_kwargs, active_sampling_kwargs
+            )
+            if "dahu" in os.uname()[1]:
+                save_configs(config_offline, None, cfg_off_path, None, "/home/dymchens-ext/apebench_test/experiments/set/", test=is_test)
+            save_configs(config_offline, config_online, cfg_off_path, cfg_on_path, main_dir, test=is_test)
