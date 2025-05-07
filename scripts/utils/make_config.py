@@ -11,13 +11,10 @@ import utility as utl
 DIM = 1
 GENERAL_SEED = 1234
 
+
 @dataclass
 class ScenarioConfig:
-    def __init__(
-            self,
-            base_scale: int = 5,
-            num_waves: int = 3,
-            **kwargs):
+    def __init__(self, base_scale: int = 5, num_waves: int = 3, **kwargs):
         """
         Scenario configuration for the study.
         Args:
@@ -54,11 +51,11 @@ class ScenarioConfig:
                 hyp_diffusion_gamma = kwargs.get("hyp_diffusion_gamma", -18)
                 convection_delta = kwargs.get("convection_delta", -1)
                 coefs_ = {
-                    "diffusion_gamma": diffusion_gamma * self.base_scale ** 2,
-                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale ** 4,
-                    "convection_delta": convection_delta * self.base_scale
+                    "diffusion_gamma": diffusion_gamma * self.base_scale**2,
+                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale**4,
+                    "convection_delta": convection_delta * self.base_scale,
                 }
-                rel = hyp_diffusion_gamma / diffusion_gamma                
+                rel = hyp_diffusion_gamma / diffusion_gamma
                 default_rel = rel / 9
             elif scenario_pde == "ks":
                 # default is -1.2 -15 -6 , rel 12.5
@@ -67,9 +64,9 @@ class ScenarioConfig:
                 hyp_diffusion_gamma = kwargs.get("hyp_diffusion_gamma", -15)
                 gradient_norm_delta = kwargs.get("gradient_norm_delta", -6)
                 coefs_ = {
-                    "diffusion_gamma": diffusion_gamma * self.base_scale ** 2,
-                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale ** 4,
-                    "gradient_norm_delta": gradient_norm_delta * self.base_scale ** 2
+                    "diffusion_gamma": diffusion_gamma * self.base_scale**2,
+                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale**4,
+                    "gradient_norm_delta": gradient_norm_delta * self.base_scale**2,
                 }
                 rel = hyp_diffusion_gamma / diffusion_gamma
                 default_rel = rel / 12.5
@@ -80,32 +77,35 @@ class ScenarioConfig:
                 hyp_diffusion_gamma = kwargs.get("hyp_diffusion_gamma", -9)
                 convection_sc_delta = kwargs.get("convection_sc_delta", -2)
                 coefs_ = {
-                    "dispersion_gamma": dispersion_gamma * self.base_scale ** 3,
-                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale ** 4,
-                    "convection_sc_delta": convection_sc_delta * self.base_scale
+                    "dispersion_gamma": dispersion_gamma * self.base_scale**3,
+                    "hyp_diffusion_gamma": hyp_diffusion_gamma * self.base_scale**4,
+                    "convection_sc_delta": convection_sc_delta * self.base_scale,
                 }
                 rel = hyp_diffusion_gamma / dispersion_gamma
                 default_rel = rel / 0.64
             else:
-                raise NotImplementedError(f"Scenario PDE {scenario_pde} is not implemented.")
+                raise NotImplementedError(
+                    f"Scenario PDE {scenario_pde} is not implemented."
+                )
         else:
-            raise NotImplementedError(f"Scenario mode {scenario_mode} is not implemented.")
+            raise NotImplementedError(
+                f"Scenario mode {scenario_mode} is not implemented."
+            )
 
         self.scenario_name = f"{scenario_mode}_{scenario_pde}"
 
-        ic_params = ';'.join([f"<amp{i+1}>;<phs{i+1}>" for i in range(self.num_waves)])
+        ic_params = ";".join([f"<amp{i+1}>;<phs{i+1}>" for i in range(self.num_waves)])
         # the maximum is determined by number of waves!
         # we assume that the amplitude interval is [-1, 1]
         # so the maximum possible value in IC is 1 * num_waves
         # the generated IC will be divided by that value
         ic_max_one = "false" if kwargs.get("ic_max_one", True) else "true"
 
-        
         self.ic_config = f"sine_sup;{ic_params};false;{ic_max_one}"
 
         # scenario identifier
         self.shorthand = f"{self.scenario_name}"
-        s = str(round(default_rel, 1)).replace('.', '')
+        s = str(round(default_rel, 1)).replace(".", "")
         if default_rel > 1:
             diff_suffix = f"x{s}_easier"
         elif default_rel < 1:
@@ -113,7 +113,9 @@ class ScenarioConfig:
         else:
             diff_suffix = "default"
         # dynamicity
-        self.shorthand += f"__{self.num_waves}w_{diff_suffix}" + ("_max1" if ic_max_one == "true" else "")
+        self.shorthand += f"__{self.num_waves}w_{diff_suffix}" + (
+            "_max1" if ic_max_one == "true" else ""
+        )
         # size
         self.shorthand += f"_{self.num_spatial_dims}d_x{self.base_scale}"
 
@@ -123,20 +125,21 @@ class ScenarioConfig:
             "scenario_name": self.scenario_name,
             "ic_config": self.ic_config,
             "num_points": self.num_points,
-        } | coefs_ 
+        } | coefs_
 
 
 @dataclass
 class DLConfig:
     def __init__(
-            self,
-            model_name: str = "UNet",
-            num_channels: int = 6,
-            num_blocks: int = 5,
-            lr_start: float = 1e-3,
-            batch_size: int = 16,
-            nb_time_steps: Union[int, float] = 0.5,
-            **kwargs):
+        self,
+        model_name: str = "UNet",
+        num_channels: int = 6,
+        num_blocks: int = 5,
+        lr_start: float = 1e-3,
+        batch_size: int = 16,
+        nb_time_steps: Union[int, float] = 0.5,
+        **kwargs,
+    ):
         """
         Deep learning configuration for the study.
         Args:
@@ -178,7 +181,9 @@ class DLConfig:
             self.nb_time_steps = round((self.valid_nb_time_steps - 1) * nb_time_steps)
             self.vision = round(nb_time_steps, 2)
         else:
-            raise NotImplementedError(f"nb_time_steps should be int or float, but got {type(nb_time_steps)}")
+            raise NotImplementedError(
+                f"nb_time_steps should be int or float, but got {type(nb_time_steps)}"
+            )
 
         # arch
         self.shorthand = f"{self.network_config.replace(';','_')}"
@@ -189,7 +194,9 @@ class DLConfig:
             else:
                 self.shorthand += f"__cosinelr{lr_start:.0e}"
         elif lr_start < lr_peak:
-            self.shorthand += f"__warmupcosine{lr_start:.1e}{lr_peak:.1e}{int(lr_interval)*100:.0d}"
+            self.shorthand += (
+                f"__warmupcosine{lr_start:.1e}{lr_peak:.1e}{int(lr_interval)*100:.0d}"
+            )
         else:
             self.shorthand += f"__decaylr{lr_start:.0e}"
         self.shorthand += f"_B{self.batch_size}"
@@ -203,19 +210,20 @@ class DLConfig:
 @dataclass
 class MelissaConfig:
     def __init__(
-            self,
-            scenario: ScenarioConfig,
-            dl: DLConfig,
-            total_nb_simulations_training: int = -1,
-            total_nb_simulations_validation: int = -1,
-            watermark_num_sim: int = -1,
-            buffer_num_sim: int = -1,
-            buffer_size_pct: float = 0.1,
-            zmq_pct: float = 0.01,
-            timeout_minutes: int = 30,
-            nb_clients: int = 14,
-            timer_delay: int = 5,
-            **kwargs):
+        self,
+        scenario: ScenarioConfig,
+        dl: DLConfig,
+        total_nb_simulations_training: int = -1,
+        total_nb_simulations_validation: int = -1,
+        watermark_num_sim: int = -1,
+        buffer_num_sim: int = -1,
+        buffer_size_pct: float = 0.1,
+        zmq_pct: float = 0.01,
+        timeout_minutes: int = 30,
+        nb_clients: int = 14,
+        timer_delay: int = 5,
+        **kwargs,
+    ):
         """
         Melissa configuration for the study.
         Args:
@@ -243,30 +251,54 @@ class MelissaConfig:
         # either we have total nb and pct => auto num_sim, either num_sim and pct => auto total, either pct and memory => auto num_sim and total
         if total_nb_simulations_training != -1 and buffer_num_sim != -1:
             buffer_size_pct = buffer_num_sim / total_nb_simulations_training
-            print("The percentage given is ignored, as total number of simulations and buffer size are given."
-                  f"\nCurrent percentage is {buffer_size_pct*100:.1f}%.")
+            print(
+                "The percentage given is ignored, as total number of simulations and buffer size are given."
+                f"\nCurrent percentage is {buffer_size_pct*100:.1f}%."
+            )
         elif total_nb_simulations_training == -1 and buffer_num_sim != -1:
             total_nb_simulations_training = round(buffer_num_sim / buffer_size_pct)
-            print(f"The total number of simulations is set to {total_nb_simulations_training} based on given buffer size and percentage.")
+            print(
+                f"The total number of simulations is set to {total_nb_simulations_training} based on given buffer size and percentage."
+            )
         elif total_nb_simulations_training != -1 and buffer_num_sim == -1:
             buffer_num_sim = round(total_nb_simulations_training * buffer_size_pct)
-            print(f"The buffer size is set to {buffer_num_sim} based on given total number of simulations and percentage.")
+            print(
+                f"The buffer size is set to {buffer_num_sim} based on given total number of simulations and percentage."
+            )
         else:
-            print("The total number of simulations and buffer size are not given, using memory budget to set them.")
+            print(
+                "The total number of simulations and buffer size are not given, using memory budget to set them."
+            )
 
         # checking memory budget and defining buffer size and validation file size
-        memory_bytes_study = kwargs.get("memory_bytes_study", min(utl.tob(45), utl.get_available_memory()))
+        memory_bytes_study = kwargs.get(
+            "memory_bytes_study", min(utl.tob(45), utl.get_available_memory())
+        )
         print(f"Memory available for study is {utl.bto(memory_bytes_study):.1f}Gb.")
-        memory_validation_bytes_file = kwargs.get("memory_validation_bytes_file", utl.tob(10))
-        print(f"Memory available for validation file is {utl.bto(memory_validation_bytes_file):.1f}Gb.")
+        memory_validation_bytes_file = kwargs.get(
+            "memory_validation_bytes_file", utl.tob(10)
+        )
+        print(
+            f"Memory available for validation file is {utl.bto(memory_validation_bytes_file):.1f}Gb."
+        )
 
-        size_sample_val = utl.calculate_data_size(scenario.num_points, dl.valid_nb_time_steps - 1, 1)
-        size_sample_train = utl.calculate_data_size(scenario.num_points, dl.nb_time_steps, 1)
-        print(f"Size of one sample is {utl.bto(size_sample_val, 2):.1f}Mb for validation and {utl.bto(size_sample_train, 2):.1f}Mb for training.")
+        size_sample_val = utl.calculate_data_size(
+            scenario.num_points, dl.valid_nb_time_steps - 1, 1
+        )
+        size_sample_train = utl.calculate_data_size(
+            scenario.num_points, dl.nb_time_steps, 1
+        )
+        print(
+            f"Size of one sample is {utl.bto(size_sample_val, 2):.1f}Mb for validation and {utl.bto(size_sample_train, 2):.1f}Mb for training."
+        )
 
         # based on validation sample size and memory budget
-        max_total_nb_simulations_validation = round(memory_validation_bytes_file / size_sample_val)
-        print(f"Maximum number of samples for validation file is {max_total_nb_simulations_validation} samples.")
+        max_total_nb_simulations_validation = round(
+            memory_validation_bytes_file / size_sample_val
+        )
+        print(
+            f"Maximum number of samples for validation file is {max_total_nb_simulations_validation} samples."
+        )
         if total_nb_simulations_validation == -1:
             # use all memory
             total_nb_simulations_validation = max_total_nb_simulations_validation
@@ -277,10 +309,13 @@ class MelissaConfig:
                 f"Validation size is capped to {max_total_nb_simulations_validation} samples based on available memory."
                 f"\nMemory available for validation file is {utl.bto(memory_validation_bytes_file):.1f}Gb."
                 f"\nFor {total_nb_simulations_validation} samples, the size is {utl.bto(size_sample_val * total_nb_simulations_validation):.1f}Gb."
-                "\nChange `memory_validation_bytes_file` to increase number of simulations.")
+                "\nChange `memory_validation_bytes_file` to increase number of simulations."
+            )
             total_nb_simulations_validation = max_total_nb_simulations_validation
         else:
-            print(f"Validation size is {total_nb_simulations_validation} samples, as given.")
+            print(
+                f"Validation size is {total_nb_simulations_validation} samples, as given."
+            )
         # during training we use only subset of the file
         size_val_set_during_training = size_sample_val * dl.valid_num_samples
         # need to check the number is of samples is not too big for study
@@ -296,7 +331,9 @@ class MelissaConfig:
 
         # check buffer size and memory
         max_memory_buffer = 0.8 * (memory_bytes_study - size_val_set_during_training)
-        memory_buffer_bytes_study = kwargs.get("memory_buffer_bytes_study", max_memory_buffer)
+        memory_buffer_bytes_study = kwargs.get(
+            "memory_buffer_bytes_study", max_memory_buffer
+        )
         if memory_buffer_bytes_study > max_memory_buffer:
             print(
                 "WARNING: "
@@ -305,7 +342,9 @@ class MelissaConfig:
                 f"\nAnd buffer is 80% of the remaining memory. But provided value is {utl.bto(memory_buffer_bytes_study):.1f}Gb."
             )
             memory_buffer_bytes_study = max_memory_buffer
-        print(f"Memory available for buffer is {utl.bto(memory_buffer_bytes_study):.1f}Gb.")
+        print(
+            f"Memory available for buffer is {utl.bto(memory_buffer_bytes_study):.1f}Gb."
+        )
         max_buffer_num_sim = round(memory_buffer_bytes_study / size_sample_train)
         if buffer_num_sim == -1:
             buffer_num_sim = max_buffer_num_sim
@@ -333,7 +372,6 @@ class MelissaConfig:
             )
             total_nb_simulations_training = round(buffer_num_sim / buffer_size_pct)
 
-
         self.total_nb_simulations_offline = total_nb_simulations_validation
         self.total_nb_simulations_online = total_nb_simulations_training
         self.buffer_size = buffer_num_sim * dl.nb_time_steps
@@ -354,16 +392,17 @@ class MelissaConfig:
         # example:
         # 20BUF_10WM__5TD_14CL
 
+
 @dataclass
 class ActiveSamplingConfig:
     def __init__(
-            self,
-            scenario: ScenarioConfig,
-            dl: DLConfig,
-            melissa: MelissaConfig,
-            regime: str = "uniform",
-            **kwargs):
-
+        self,
+        scenario: ScenarioConfig,
+        dl: DLConfig,
+        melissa: MelissaConfig,
+        regime: str = "uniform",
+        **kwargs,
+    ):
         # instead of iterating over many numerical hyperparameters
         # we establish sets of hyperparameters and give them names
 
@@ -377,7 +416,7 @@ class ActiveSamplingConfig:
 
         # sliding_window_size - memory: short, long
         # could be defined through buffer size,
-        # short - not more than buffer samples, 
+        # short - not more than buffer samples,
         # long - twice more than buffer samples
         # short: 1 * BS, long: 2 * BS
 
@@ -388,12 +427,12 @@ class ActiveSamplingConfig:
         # 2. memory long + impulsiveness high + reactiveness high
 
         #  -----------------
-        
+
         # sigma -> concentration: narrow, wide
         # narrow: 0.05, wide: 0.1
         # this is the ratio between "parent neighbourhood" and parameter interval length
         # where "parent neighbourhood" = 3 sigma = 86.6% of the normal distribution
-        
+
         # (start, end, breakpoint) - epsilon-greedy schedule: explorative, exploitative
         # explorative: 0.5, 0.75, 5
         # exploitative: 0.75, 0.9, 3
@@ -409,8 +448,13 @@ class ActiveSamplingConfig:
         # 3. Uniform: no proposal, but we use the same parameters as in the precise regime
         # 4. No resampling: nn_updates = -1
 
-        nb_expected_batches = round(melissa.total_nb_simulations_online * dl.nb_time_steps / dl.batch_size * 1.5)
-        pars_interval_length = [scenario.u_bounds[i] - scenario.l_bounds[i] for i in range(scenario.num_waves * 2)]
+        nb_expected_batches = round(
+            melissa.total_nb_simulations_online * dl.nb_time_steps / dl.batch_size * 1.5
+        )
+        pars_interval_length = [
+            scenario.u_bounds[i] - scenario.l_bounds[i]
+            for i in range(scenario.num_waves * 2)
+        ]
         buffer_samples = round(melissa.buffer_size // dl.nb_time_steps)
 
         if regime == "precise":
@@ -429,7 +473,9 @@ class ActiveSamplingConfig:
             breakpoint_ = 3
             sliding_window_size = 2 * buffer_samples
             fitness_min_nb_time_steps = round(0.25 * dl.nb_time_steps)
-            min_nb_finished_simulations = round((melissa.per_server_watermark // dl.nb_time_steps) * 2)
+            min_nb_finished_simulations = round(
+                (melissa.per_server_watermark // dl.nb_time_steps) * 2
+            )
             resample_each_nn_updates = buffer_samples * 2
         elif regime == "mixed":
             sigma = 0.1
@@ -438,7 +484,9 @@ class ActiveSamplingConfig:
             breakpoint_ = 3
             sliding_window_size = buffer_samples
             fitness_min_nb_time_steps = round(0.33 * dl.nb_time_steps)
-            min_nb_finished_simulations = round((melissa.per_server_watermark // dl.nb_time_steps) * 2)
+            min_nb_finished_simulations = round(
+                (melissa.per_server_watermark // dl.nb_time_steps) * 2
+            )
             resample_each_nn_updates = buffer_samples * 3
         elif regime == "uniform":
             # same as mixed but r-value = 0
@@ -448,7 +496,9 @@ class ActiveSamplingConfig:
             breakpoint_ = 3
             sliding_window_size = buffer_samples
             fitness_min_nb_time_steps = round(0.33 * dl.nb_time_steps)
-            min_nb_finished_simulations = round((melissa.per_server_watermark // dl.nb_time_steps) * 2)
+            min_nb_finished_simulations = round(
+                (melissa.per_server_watermark // dl.nb_time_steps) * 2
+            )
             resample_each_nn_updates = buffer_samples * 3
         elif regime == "no_resampling":
             sigma = 0.5
@@ -462,26 +512,37 @@ class ActiveSamplingConfig:
         else:
             if regime == "custom" and kwargs is None:
                 raise ValueError("Custom regime requires kwargs to be set")
-        
+
         self.config_dict = dict()
         #  each X batches resampling is triggered
-        self.config_dict["nn_updates"] = kwargs.get("nn_updates", resample_each_nn_updates)
+        self.config_dict["nn_updates"] = kwargs.get(
+            "nn_updates", resample_each_nn_updates
+        )
         #  the threshold for the first resampling
-        self.config_dict["min_nb_finished_simulations"] = kwargs.get("min_nb_finished_simulations", min_nb_finished_simulations)
+        self.config_dict["min_nb_finished_simulations"] = kwargs.get(
+            "min_nb_finished_simulations", min_nb_finished_simulations
+        )
         #  the threshold for bein a parent
-        self.config_dict["delta_loss_min_nb_time_steps"] = kwargs.get("delta_loss_min_nb_time_steps", fitness_min_nb_time_steps)
+        self.config_dict["delta_loss_min_nb_time_steps"] = kwargs.get(
+            "delta_loss_min_nb_time_steps", fitness_min_nb_time_steps
+        )
         #  when to stop resampling
         self.config_dict["non_resampling_threshold"] = 1
 
         self.config_dict["breed_params"] = {
             "non_breed_sampling_strategy": "random",
-            "sigma": [round(kwargs.get("sigma", sigma) * length, 4) for length in pars_interval_length],
+            "sigma": [
+                round(kwargs.get("sigma", sigma) * length, 4)
+                for length in pars_interval_length
+            ],
             "start": kwargs.get("start", start),
             "end": kwargs.get("end", end),
             "breakpoint": kwargs.get("breakpoint", breakpoint_),
-            "sliding_window_size": kwargs.get("sliding_window_size", sliding_window_size),
+            "sliding_window_size": kwargs.get(
+                "sliding_window_size", sliding_window_size
+            ),
             "use_true_mixing": True,
-            "log_extra": False
+            "log_extra": False,
         }
 
         if len(kwargs) > 1:
@@ -489,15 +550,18 @@ class ActiveSamplingConfig:
         else:
             self.shorthand = regime
 
+
 class StudyConfig:
-    def __init__(self,
-                 scenario: ScenarioConfig,
-                 dl: DLConfig,
-                 melissa: MelissaConfig,
-                 active_sampling: ActiveSamplingConfig,
-                 common_study_directory: str,
-                 common_valid_directory: str
-                 ):
+    def __init__(
+        self,
+        scenario: ScenarioConfig,
+        dl: DLConfig,
+        melissa: MelissaConfig,
+        active_sampling: ActiveSamplingConfig,
+        common_study_directory: str,
+        common_valid_directory: str,
+        default_configs_file="jz_slurm_default_configs.json",
+    ):
         self.scenario = scenario
         self.dl = dl
 
@@ -505,14 +569,21 @@ class StudyConfig:
         self.active_sampling = active_sampling
         self.seed = GENERAL_SEED
 
-        with open("default_configs.json", "r") as f:
+        with open(default_configs_file, "r") as f:
             self.default_configs = json.load(f)
 
         self.validation_subname = f"{self.scenario.shorthand}"
-        self.validation_directory = \
-            os.path.join(common_valid_directory, self.validation_subname)
-        if os.path.exists(os.path.join(self.validation_directory, "trajectories", "all_trajectories.npy")):
-            print(f"WARNING: Validation file already exists in: {self.validation_directory}. Most probably, you don't need to run the offline study again.")
+        self.validation_directory = os.path.join(
+            common_valid_directory, self.validation_subname
+        )
+        if os.path.exists(
+            os.path.join(
+                self.validation_directory, "trajectories", "all_trajectories.npy"
+            )
+        ):
+            print(
+                f"WARNING: Validation file already exists in: {self.validation_directory}. Most probably, you don't need to run the offline study again."
+            )
             self.validation_exists_flag = True
         else:
             self.validation_exists_flag = False
@@ -521,38 +592,50 @@ class StudyConfig:
             self.scenario.shorthand.split("__"),
             self.melissa.shorthand.split("__"),
             self.dl.shorthand.split("__"),
-            self.active_sampling.shorthand
+            self.active_sampling.shorthand,
         ]
 
-        self.study_name = "__".join([self.scenario.shorthand, 
-                                     self.melissa.shorthand,
-                                     self.dl.shorthand,
-                                     self.active_sampling.shorthand])
-        subdir = "/".join([self.scenario.shorthand,
-                           self.melissa.shorthand,
-                           self.dl.shorthand,
-                           self.active_sampling.shorthand])
+        self.study_name = "__".join(
+            [
+                self.scenario.shorthand,
+                self.melissa.shorthand,
+                self.dl.shorthand,
+                self.active_sampling.shorthand,
+            ]
+        )
+        subdir = "/".join(
+            [
+                self.scenario.shorthand,
+                self.melissa.shorthand,
+                self.dl.shorthand,
+                self.active_sampling.shorthand,
+            ]
+        )
 
-        study_directory = \
-            os.path.join(common_study_directory, subdir)
+        study_directory = os.path.join(common_study_directory, subdir)
         self.study_directory = utl.get_next_dir(study_directory)
         print(f"Study directory: {self.study_directory}")
 
+        if "slurm" in self.default_configs["offline"]["launcher_config"]["scheduler"]:
+            self.sched_t = "slurm"
+        else:
+            self.sched_t = "mpi"
 
     def generate_offline(self):
         if self.validation_exists_flag:
-            print(f"WARNING: Validation file already exists in: {self.validation_directory}. Check the files.")
+            print(
+                f"WARNING: Validation file already exists in: {self.validation_directory}. Check the files."
+            )
 
         config = utl.deep_update(
             self.default_configs["offline"],
             {
-                "output_dir":  self.validation_directory,
+                "output_dir": self.validation_directory,
                 "study_options": {
-                    "scenario_config": self.scenario.scenario_config | {
-                        "network_config": "MLP;1;1;relu"
-                    },
+                    "scenario_config": self.scenario.scenario_config
+                    | {"network_config": "MLP;1;1;relu"},
                     "parameter_sweep_size": self.melissa.total_nb_simulations_offline,
-                    "nb_time_steps": self.dl.valid_nb_time_steps - 1, # not counting IC
+                    "nb_time_steps": self.dl.valid_nb_time_steps - 1,  # not counting IC
                     "nb_parameters": self.scenario.num_waves * 2,
                     "l_bounds": self.scenario.l_bounds,
                     "u_bounds": self.scenario.u_bounds,
@@ -561,22 +644,26 @@ class StudyConfig:
                 "launcher_config": {
                     # "job_limit": self.melissa.nb_clients + 1,
                     "http_port": int(f"88{np.random.randint(0, 10)}8"),
-                }
-            }
+                },
+            },
         )
-        config_path = f"config_offline_{self.validation_subname}{'_copy' if self.validation_exists_flag else ''}_mpi.json"
-        config["client_config"]["preprocessing_commands"].append(f"export CONFIG_FILE={config_path}")
+
+        config_path = f"config_offline_{self.validation_subname}{'_copy' if self.validation_exists_flag else ''}_{self.sched_t}.json"
+        config["client_config"]["preprocessing_commands"].append(
+            f"export CONFIG_FILE={config_path}"
+        )
         return config, config_path
 
     def generate_online(self):
         config = utl.deep_update(
             self.default_configs["online"],
             {
-                "output_dir":  self.study_directory,
+                "output_dir": self.study_directory,
                 "study_options": {
-                    "scenario_config": self.scenario.scenario_config | {
+                    "scenario_config": self.scenario.scenario_config
+                    | {
                         "network_config": self.dl.network_config,
-                        "optim_config": self.dl.optim_config
+                        "optim_config": self.dl.optim_config,
                     },
                     "parameter_sweep_size": self.melissa.total_nb_simulations_online,
                     "nb_time_steps": self.dl.nb_time_steps,
@@ -586,11 +673,11 @@ class StudyConfig:
                     "seed": self.seed,
                     "zmq_hwm": self.melissa.zmq_hwm,
                 },
-
                 "active_sampling_config": self.active_sampling.config_dict,
-
                 "dl_config": {
-                    "validation_directory": os.path.join(self.validation_directory, "trajectories"),
+                    "validation_directory": os.path.join(
+                        self.validation_directory, "trajectories"
+                    ),
                     "validation_file": "all_trajectories.npy",
                     "valid_rollout": self.dl.valid_rollout,
                     "valid_batch_size": self.dl.valid_batch_size,
@@ -604,37 +691,63 @@ class StudyConfig:
                     "job_limit": self.melissa.nb_clients + 2,
                     "timer_delay": self.melissa.timer_delay,
                     "http_port": int(f"888{np.random.randint(0, 10)}"),
-                }
-            }
+                },
+            },
         )
-        config["launcher_config"]["scheduler_arg_server"] = config["launcher_config"]["scheduler_arg_server"] + ["--timeout", str(self.melissa.timeout_minutes * 60)]
-        config_path = f"config_{self.study_name}_mpi.json"
-        config["client_config"]["preprocessing_commands"].append(f"export CONFIG_FILE={config_path}")
+        import datetime
+        seconds = self.melissa.timeout_minutes * 60
+        if self.sched_t == "slurm":
+            timeout = [f"--time={datetime.timedelta(seconds=seconds)}"]
+        else:
+            timeout = ["--timeout", str(seconds)]
+        config["launcher_config"]["scheduler_arg_server"] = config["launcher_config"][
+            "scheduler_arg_server"
+        ] + timeout
+        config_path = f"config_{self.study_name}_{self.sched_t}.json"
+        config["client_config"]["preprocessing_commands"].append(
+            f"export CONFIG_FILE={config_path}"
+        )
         return config, config_path
 
-def test_scenario_config(scenario_config):    
+
+def test_scenario_config(scenario_config):
     scenario = ScenarioConfig(**scenario_config)
     print(f"Created scenario: {scenario.shorthand}")
     return scenario
+
 
 def test_dl_config(dl_config):
     dl = DLConfig(**dl_config)
     print(f"Created DL config: {dl.shorthand}")
     return dl
+
+
 def test_melissa_config(melissa_config, scenario, dl):
     melissa = MelissaConfig(scenario, dl, **melissa_config)
     print(f"Created Melissa config: {melissa.shorthand}")
     return melissa
+
+
 def test_active_sampling_config(active_sampling_config, scenario, dl, melissa):
-    active = ActiveSamplingConfig(**active_sampling_config, scenario=scenario, dl=dl, melissa=melissa)
+    active = ActiveSamplingConfig(
+        **active_sampling_config, scenario=scenario, dl=dl, melissa=melissa
+    )
     print(f"Created Active Sampling config: {active.shorthand}")
     return active
+
+
 def test_study_config(scenario, dl, melissa, active):
-    study = StudyConfig(scenario, dl, melissa, active,
-                        common_study_directory="./",
-                        common_valid_directory="./")
+    study = StudyConfig(
+        scenario,
+        dl,
+        melissa,
+        active,
+        common_study_directory="./",
+        common_valid_directory="./",
+    )
     print(f"Created Study config: {study.study_directory}")
     return study
+
 
 def test_config_generation():
     """Test configuration generation with fixed values"""
@@ -645,7 +758,7 @@ def test_config_generation():
         "pde": "ks_cons",
         "diffusion_gamma": -3,
         "hyp_diffusion_gamma": -50,
-        "convection_delta": -1
+        "convection_delta": -1,
     }
     dl_config = {
         "model_name": "UNet",
@@ -664,7 +777,7 @@ def test_config_generation():
         "zmq_pct": 0.01,
         "timeout_minutes": 60,
         "nb_clients": 14,
-        "timer_delay": 5
+        "timer_delay": 5,
     }
     active_sampling_config = {
         "regime": "precise",
@@ -674,14 +787,16 @@ def test_config_generation():
         scenario = test_scenario_config(scenario_config)
         dl = test_dl_config(dl_config)
         melissa = test_melissa_config(melissa_config, scenario, dl)
-        active = test_active_sampling_config(active_sampling_config, scenario, dl, melissa)
+        active = test_active_sampling_config(
+            active_sampling_config, scenario, dl, melissa
+        )
         study = test_study_config(scenario, dl, melissa, active)
         config_offline, cfg_off_path = study.generate_offline()
         config_online, cfg_on_path = study.generate_online()
 
-        with open(cfg_off_path, 'w') as f:
+        with open(cfg_off_path, "w") as f:
             json.dump(config_offline, f, indent=4)
-        with open(cfg_on_path, 'w') as f:
+        with open(cfg_on_path, "w") as f:
             json.dump(config_online, f, indent=4)
         return cfg_off_path, cfg_on_path
 
@@ -689,7 +804,6 @@ def test_config_generation():
         print(f"Failed to create config: {str(e)}")
         raise
 
+
 if __name__ == "__main__":
     conf_off, conf_on = test_config_generation()
-
-
