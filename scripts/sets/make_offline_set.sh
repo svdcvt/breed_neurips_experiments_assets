@@ -55,14 +55,27 @@ done
 # Get the number of config files
 num_config_files=${#config_files[@]}
 # Calculate the total time needed to run all config files in parallel number
-total_time=$((num_config_files * 90 / 60 / number))
+total_time=$((num_config_files * 30 / number))
+# Convert total time to hours and minutes
+total_time_hours=$((total_time / 60))
+total_time_minutes=$((total_time % 60))
+# Format the total time as HH:MM
+if [ $total_time_hours -lt 10 ]; then
+	total_time_hours="0$total_time_hours"
+fi
+if [ $total_time_minutes -lt 10 ]; then
+	total_time_minutes="0$total_time_minutes"
+fi
+# Format the total time as HH:MM
+total_time="$total_time_hours:$total_time_minutes"
+
 
 # Print the total time needed
-echo "Total time needed to run all config files: $total_time hours"
+echo "Total time needed to run all config files: $total_time"
 
 first_echo="
 #OAR -n melissa-study-validation-$number
-#OAR -l /nodes=1/core=20,walltime=$total_time:00:00
+#OAR -l /nodes=1/core=20,walltime=$total_time:00
 #OAR --project pr-melissa
 
 source /applis/environments/singularity_env.sh

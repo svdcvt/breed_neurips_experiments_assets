@@ -142,7 +142,7 @@ if __name__ == "__main__":
         scenario_kwargs["ic_max_one"] = row["ic_max_one"]
         dl_config["temporal_horizon"] = row["temporal_horizon"]
         if row["temporal_horizon"] == 200:
-            melissa_config["timeout_minutes"] = 120
+            melissa_config["timeout_minutes"] = 80
         else:
             melissa_config["timeout_minutes"] = 60
 

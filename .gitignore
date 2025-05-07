@@ -20,6 +20,7 @@ melissa-202*
 **/debug/**
 **.png
 **.csv
+!scripts/utils/pde_set.csv
 **OAR**
 experiments/set/*
 experiments/across_pdes/diff_mode/ks_cons/unet_*

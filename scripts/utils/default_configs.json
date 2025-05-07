@@ -61,7 +61,7 @@
     },
     "launcher_config": {
         "scheduler": "openmpi",
-        "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "4800"],
+        "scheduler_arg_server": ["-n", "1", "--oversubscribe", "--timeout", "1800"],
         "scheduler_arg_client": ["-n", "1", "--oversubscribe"],
         "server_timeout": 200,
         "timer_delay": 1,
