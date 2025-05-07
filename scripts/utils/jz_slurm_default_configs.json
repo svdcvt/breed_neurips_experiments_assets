@@ -1,0 +1,116 @@
+{
+"online" : {
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchServer",
+    "output_dir": "",
+    "ignore_client_death": true,
+    "study_options": {
+        "field_names": ["preposition", "position"],
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2
+    },
+    "active_sampling_config": {},
+    "dl_config": {
+        "buffer": "Reservoir",
+        "convert_log_to_df": false,
+        "valid_rollout_fast": true,
+        "valid_num_samples": 100
+    },
+    "launcher_config": {
+        "scheduler": "slurm-semiglobal",
+        "scheduler_arg_server": [
+            "--qos=qos_gpu-dev",
+            "--account=igf@v100",
+            "--nodes=1",
+            "--ntasks=2",
+            "--gres=gpu:1",
+            "--cpus-per-task=5",
+            "--threads-per-core=1",
+            "--hint=nomultithread"
+        ],
+        "scheduler_server_command_options": [
+            "singularity",
+            "exec",
+            "--nv",
+            "$SINGULARITY_ALLOWED_DIR/melissa-active-sampling-with-apebench-cuda.sif"
+        ],
+        "scheduler_arg_client": [
+            "--account=igf@cpu",
+            "--nodes=1",
+            "--ntasks=1",
+            "--time=00:10:00",
+            "--exclusive"
+        ],
+        "server_timeout": 900,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true
+    },
+    "client_config": {
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
+        "command_default_args": [],
+        "preprocessing_commands": [
+            "export JAX_PLATFORMS=cpu"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+            "module load singularity",
+            "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.8"
+        ]
+    },
+    "monitoring_config": {
+        "log_memory": "tb",
+        "plotting_config": {
+            "plot_rows": 5
+        },
+        "checkpoint_model_best": true,
+        "checkpoint_model_last": true,
+        "checkpoint_model_each_step": 1000
+    }
+},
+
+"offline": {
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchOfflineServer",
+    "output_dir": "",
+    "study_options": {
+        "field_names": ["preposition", "position"],
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2
+    },
+    "launcher_config": {
+        "scheduler": "slurm-global",
+        "scheduler_arg_server": [
+            "--het-group=0",
+            "--ntasks=1"
+        ],
+        "scheduler_arg_client": [
+            "--het-group=1",
+            "--ntasks=1",
+            "--time=00:10:00",
+            "--exclusive"
+        ],
+        "server_timeout": 200,
+        "timer_delay": 1,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true,
+        "job_limit": 20
+    },
+    "client_config": {
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
+        "command_default_args": ["--offline"],
+        "preprocessing_commands": [
+            "export JAX_PLATFORMS=cpu"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+            "export JAX_PLATFORMS=cpu"
+        ]
+    }
+}
+}

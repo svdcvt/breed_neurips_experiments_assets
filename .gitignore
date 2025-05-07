@@ -4,6 +4,7 @@ MELISSA
 STUDY_OUT*
 VALIDATION_OUT*
 OFFLINE_*
+temp_*_dir/
 *.npy
 *.err
 *.out
