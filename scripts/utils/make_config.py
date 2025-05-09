@@ -99,7 +99,7 @@ class ScenarioConfig:
         # we assume that the amplitude interval is [-1, 1]
         # so the maximum possible value in IC is 1 * num_waves
         # the generated IC will be divided by that value
-        ic_max_one = "false" if kwargs.get("ic_max_one", True) else "true"
+        ic_max_one = "true" if kwargs.get("ic_max_one", True) else "false"
 
         self.ic_config = f"sine_sup;{ic_params};false;{ic_max_one}"
 

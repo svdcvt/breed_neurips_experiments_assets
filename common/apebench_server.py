@@ -726,7 +726,7 @@ class APEBenchServerValidation(CommonInitMixIn):
         self.models_paths = sorted(glob.glob(os.path.join(path_to_models, "model_*.eqx")))
         self.num_models = len(self.models_paths)
         if self.num_models == 0:
-            raise ValueError("No model checkpoints found in the specified directory.")
+            print("No model checkpoints found in the specified directory.")
         optimizer = self.scenario.get_optimizer(faux=True)
         self.checkpoint_dict = {
             'model': self.model,
@@ -750,7 +750,16 @@ class APEBenchServerValidation(CommonInitMixIn):
             self.valid_dataset, self.valid_parameters, self.valid_dataloader, self.valid_dataloader_rollout = args
 
     def load_model_from_checkpoint(self, index=-1):
-        assert index < self.num_models, f"Index {index} out of range for models_paths with length {self.num_models}"
+        if index >= self.num_models:
+            index_ = [i for i, modelname in enumerate(self.models_paths) if str(index) in modelname]
+            if len(index_) == 0:
+                print(f"Model with index {index} not found in the specified directory.")
+            index = index_[0]
+        if index == -1:
+            index = [i for i,p in enumerate(self.models_paths) if "best" in p]
+            if len(index) == 0:
+                print("Model with index {index} not found in the specified directory.")
+            index = index[0]
         try:
             # Load checkpoint
             chkpt = eqx.tree_deserialise_leaves(self.models_paths[index], like=self.checkpoint_dict)

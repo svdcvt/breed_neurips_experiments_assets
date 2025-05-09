@@ -54,6 +54,12 @@ def merge_npy_files(directory_path, output_file="all_trajectories.npy", test=Fal
                 print(f"Deleting file {file_path}...")
             os.remove(file_path)
         else:
+            try:
+                merged_array[current_index : current_index + rows] = array
+                current_index += rows
+            except BaseException as e:
+                print(f"Error while merging file {file_path}: {e}")
+                return 1
             print(f"Test mode: File {file_path} would be deleted.")
     
     if not test:
@@ -68,6 +74,7 @@ def merge_npy_files(directory_path, output_file="all_trajectories.npy", test=Fal
             f"Test mode: Merged file would be saved to {output_path}, shape {merged_array.shape} and dtype {merged_array.dtype}\
             \nThe size is {merged_array.nbytes / 1024 / 1024 / 1024 :.2f} GB"
         )
+        return 0
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge .npy files in a directory.")
@@ -89,5 +96,12 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    merge_npy_files(args.directory, test=args.test, quiet=args.quiet)
-
+    exit_code = merge_npy_files(args.directory, test=True, quiet=args.quiet)
+    if exit_code == 1:
+        print("An error occurred during the merging process.")
+    elif exit_code == 0:
+        if not args.test:
+            print("Test mode: No errors. Starting the merging process.")
+            merge_npy_files(args.directory, test=False, quiet=args.quiet)
+        else:
+            print("Test mode: No errors. No merging performed.")

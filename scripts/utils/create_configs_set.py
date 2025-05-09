@@ -39,7 +39,7 @@ def create_from(
         dl,
         melissac,
         active_sampling,
-        common_study_directory,
+        common_study_directory, # what is going to be in the config, important to have /home/,,, always??
         common_valid_directory,
         default_configs_file,
     )
@@ -107,22 +107,22 @@ if __name__ == "__main__":
     else:
         print("Running in normal mode")
 
-    if os.uname()[1] == "bigfoot":
-        COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
-        COMMON_VALID_DIRECTORY = (
-            "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
-        )
-    elif "dahu" in os.uname()[1]:
-        COMMON_STUDY_DIRECTORY = (
-            "/home-bigfoot/dymchens-ext/apebench_test/experiments/set/"
-        )
-        COMMON_VALID_DIRECTORY = (
-            "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
-        )
-    else:
-        # raise ValueError("Unknown machine")
-        COMMON_STUDY_DIRECTORY = "temp_study_dir"
-        COMMON_VALID_DIRECTORY = "temp_valid_dir"
+    # if os.uname()[1] == "bigfoot":
+    COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
+    COMMON_VALID_DIRECTORY = (
+        "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
+    )
+    # elif "dahu" in os.uname()[1]:
+    #     COMMON_STUDY_DIRECTORY = (
+    #         "/home-bigfoot/dymchens-ext/apebench_test/experiments/set/"
+    #     )
+    #     COMMON_VALID_DIRECTORY = (
+    #         "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
+    #     )
+    # else:
+    #     # raise ValueError("Unknown machine")
+    #     COMMON_STUDY_DIRECTORY = "temp_study_dir"
+    #     COMMON_VALID_DIRECTORY = "temp_valid_dir"
 
     scenario_config = {"base_scale": 5, "num_waves": 3}
     scenario_kwargs = {
@@ -204,7 +204,7 @@ if __name__ == "__main__":
                 dl_config,
                 melissa_config,
                 args.default_configs_file,
-                COMMON_STUDY_DIRECTORY,
+                COMMON_STUDY_DIRECTORY, # what is going to be in the config, important to have /home/... even if running from dahu
                 COMMON_VALID_DIRECTORY,
                 scenario_kwargs,
                 dl_kwargs,
@@ -214,17 +214,27 @@ if __name__ == "__main__":
             if "dahu" in os.uname()[1]:
                 save_configs(
                     config_offline,
+                    config_online,
+                    cfg_off_path,
+                    cfg_on_path,
+                    main_dir.replace("/home/", "/home-bigfoot/"),
+                    test=is_test,
+                )
+                save_configs(
+                    config_offline,
                     None,
                     cfg_off_path,
                     None,
                     "/home/dymchens-ext/apebench_test/experiments/set/",
                     test=is_test,
                 )
-            save_configs(
-                config_offline,
-                config_online,
-                cfg_off_path,
-                cfg_on_path,
-                main_dir,
-                test=is_test,
-            )
+            else:
+                print("be sure you created offline configs on DAHU and going to run them on DAHU cluster!!!")    
+                save_configs(
+                    config_offline,
+                    config_online,
+                    cfg_off_path,
+                    cfg_on_path,
+                    main_dir,
+                    test=is_test,
+                )

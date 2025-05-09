@@ -31,26 +31,38 @@ CONFIG_PARSE_MODE = rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
 # valid_diffs = [0.003, 0.019, 0.022, 0.025, 0.036]
 # valid_ids_to_predict = [317, 954, 167, 330, 1243, 81, 239, 884, 512, 125, 1022, 927]
 # valid_diffs = [0.004, 0.010, 0.024, 0.027, 0.029, 0.030, 0.032, 0.033, 0.035, 0.038, 0.045, 0.051]
-
-valid_ids_to_predict = [317, 439, 311, 154, 738, 1138, 87, 488, 595, 345, 1022, 927]
-valid_diffs = [0.003, 0.007, 0.017, 0.019, 0.020, 0.022, 0.023, 0.024, 0.025, 0.027, 0.033, 0.036]
-
+# valid_ids_to_predict = [317, 439, 311, 154, 738, 1138, 87, 488, 595, 345, 1022, 927]
+# valid_diffs = [0.003, 0.007, 0.017, 0.019, 0.020, 0.022, 0.023, 0.024, 0.025, 0.027, 0.033, 0.036]
 # valid_ids_to_predict = [317, 954, 1025, 1, 459, 274, 551, 77, 1022, 927]
 # valid_diffs = [0.004, 0.010, 0.025, 0.028, 0.030, 0.032, 0.034, 0.037, 0.045, 0.051]
+NUM = 5
+DEPTH_PDE_FOLDER = 6
+#  /home-bigfoot/dymchens-ext/apebench_test/experiments/set/diff_kdv__2w_x04_harder_1d_x5/100BUF_10WM__2TD_8CL/UNet_6_5_relu__constlr1e-03_B256__T75p/mixed_0
+valid_ids_path = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/validation_ids.csv"
+MODEL_ID_FOR_PREDICTION = 4000
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Plot model predictions and validation quality.")
     parser.add_argument("--study-paths", type=str, nargs='+', default=".", help="Path(s) to study(ies) with model(s).")
-    parser.add_argument("--output-dir", type=str, default="./validation_results/", help="Directory to save plots.")
+    parser.add_argument("--output-dir", type=str, default=None, help="Directory to save plots.")
+    parser.add_argument("--model-id", type=int, default=None, help="Model ID for prediction.")
     args = parser.parse_args()
 
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    
     args.study_paths = [os.path.abspath(path) for path in args.study_paths]
+    args.study_paths = [path for path in args.study_paths if os.path.isdir(path)]
     study_names = [os.path.split(path)[1] for path in args.study_paths]
+    study_common_pde = set([path.split('/')[DEPTH_PDE_FOLDER] for path in args.study_paths])
+    if len(study_common_pde) > 1:
+        print("Error: study paths do not share the same common PDE folder. Exiting.")
+        sys.exit(1)
+    else:
+        study_common_pde = study_common_pde.pop()
+    print(f"Common PDE folder: {study_common_pde}")
     configs = []
     for study_path in args.study_paths:
+        print(f"Processing study: {study_path}")
         config_path = glob.glob(os.path.join(study_path, "config*.json"))[0]
         if os.path.exists(config_path):
             print(f"Loading config from {config_path}")
@@ -61,23 +73,45 @@ if __name__ == "__main__":
             print(f"Config file not found in {study_path}. Skipping this study.")
             continue
 
+    # read validation_ids.csv
+    if os.path.exists(valid_ids_path):
+        validation_ids_df = pd.read_csv(valid_ids_path, index_col=0, header=0)
+        validation_ids_df = validation_ids_df.loc[study_common_pde]
+        print(validation_ids_df)
+        valid_ids_to_predict = validation_ids_df.iloc[:NUM].values.astype(int).flatten()
+        valid_diffs = validation_ids_df.iloc[NUM:].values.astype(float).flatten()
+
     if len(configs) > 1:
         # we take model_best from each directory, so APEBenchServerValidation().load_model_from_checkpoint(-1) from each
         # gather list of configs, model_index = [-1]
-        model_index = [-1]
+        if args.model_id is not None:
+            model_index = [args.model_id]
+        else:
+            model_index = [-1]
     elif len(configs) == 1:
         # we take all models from the directory, so APEBenchServerValidation().load_model_from_checkpoint(i) for i in range  the directory
         # list of configs is [config], model_index is range(server.num_models - 1) + [-1]
-        model_index = [None, -1]
+        if args.model_id is not None:
+            model_index = [args.model_id]
+        else:
+            model_index = [None, -1]
     elif len(configs) == 0:
         # it is an error, we should not be here
         print("No config files found in the provided study paths. Exiting.")
         sys.exit(1)
 
     stats_names = [
-        "max", "min", "std", "mean_pstd", "mean_mean", "mean_mstd",
+        "max", "min", "std", "mean_mean",
         "p90", "p75", "p50", "p25", "p10"
     ]
+
+    if args.output_dir is None:
+        if args.model_id is not None:
+            args.output_dir = f"./validation_results_{study_common_pde}/{args.model_id}/"
+        else:
+            args.output_dir = f"./validation_results_{study_common_pde}/best/"
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
     if os.path.exists(os.path.join(args.output_dir, "validation_results.csv")) and \
             os.path.exists(os.path.join(args.output_dir, "loss_per_sample.npy")) and \
@@ -95,7 +129,7 @@ if __name__ == "__main__":
         all_rollout_losses = np.load(os.path.join(args.output_dir, "rollout_losses.npy"))
         all_predictions = np.load(os.path.join(args.output_dir, "predictions.npy"))
         all_val_samples_to_predict = np.load(os.path.join(args.output_dir, "val_samples_to_predict.npy"))
-        if all_val_samples_to_predict.shape[0] != len(valid_ids_to_predict):
+        if all_val_samples_to_predict.shape[0] != NUM:
             print("Warning: number of validation samples to predict does not match the provided valid_ids_to_predict. Exiting.")
             sys.exit(1)
         validation_input_params = np.load(os.path.join(config["dl_config"]["validation_directory"], "input_parameters.npy"))
@@ -155,7 +189,7 @@ if __name__ == "__main__":
                                 **{f"{name}": stats[name] for name in stats_names}
                             }).to_frame().T
                         ], ignore_index=True)
-                else:
+                elif model_idx == -1:
                     print(f"Loading best model from {server.models_paths[-1]}")
                     server.load_model_from_checkpoint(-1)
                     avg_val_loss, loss_per_sample, stats, rollout_loss, rollout_losses, rollout_losses_all = server.run_validation()
@@ -173,7 +207,28 @@ if __name__ == "__main__":
                     ], ignore_index=True)
                     for val_id in valid_ids_to_predict:
                         sample, prediction = server.rollout_sample(val_id)
-                        if len(all_val_samples_to_predict) < len(valid_ids_to_predict):
+                        if len(all_val_samples_to_predict) < NUM:
+                            all_val_samples_to_predict.append(sample)
+                        all_predictions[-1].append(prediction)
+                else:
+                    print(f"Loading model {model_idx}")
+                    server.load_model_from_checkpoint(model_idx)
+                    avg_val_loss, loss_per_sample, stats, rollout_loss, rollout_losses, rollout_losses_all = server.run_validation()
+                    all_loss_per_sample[-1].append(loss_per_sample)
+                    all_rollout_losses[-1].append(rollout_losses_all)
+                    dataframe = pd.concat([
+                        dataframe,
+                        pd.Series({
+                            "study": os.path.split(server.study_path)[1],
+                            "model_index": model_idx,
+                            "avg_val_loss": avg_val_loss,
+                            "rollout_loss": rollout_loss,
+                            **{f"{name}": stats[name] for name in stats_names}
+                        }).to_frame().T
+                    ], ignore_index=True)
+                    for val_id in valid_ids_to_predict:
+                        sample, prediction = server.rollout_sample(val_id)
+                        if len(all_val_samples_to_predict) < NUM:
                             all_val_samples_to_predict.append(sample)
                         all_predictions[-1].append(prediction)
 
@@ -290,7 +345,7 @@ if __name__ == "__main__":
     for j in range(len(valid_ids_to_predict)):
         sample = all_val_samples_to_predict[j]
         if j == 0:
-            ax[0][j].set_title(f"True Simulation\t diff={valid_diffs[j]}", fontsize=10, loc="left")
+            ax[0][j].set_title(f"True Simulation | diff={valid_diffs[j]}", fontsize=10, loc="left")
         else:
             ax[0][j].set_title(f"diff={valid_diffs[j]}, simid={valid_ids_to_predict[j]}", fontsize=10, loc="left")
         im = ax[0][j].imshow(sample.squeeze(1).T, cmap="coolwarm", vmin=min_val_per_sample[j], vmax=max_val_per_sample[j], aspect="auto")
