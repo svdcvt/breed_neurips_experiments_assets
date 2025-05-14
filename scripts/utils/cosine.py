@@ -40,10 +40,10 @@ def warmup_cosine_decay_schedule(init_value, peak_value, warmup_steps, decay_ste
     return schedule
 
 # Define parameters for the schedule
-init_value = 1.0e-5
-peak_value = 1.0e-3
-warmup_steps = 100
-decay_steps = 2000
+init_value = 1.0e-3
+peak_value = 1.0e-4
+warmup_steps = 5000
+decay_steps = 20000
 end_value = 0.0
 exponent = 1.0
 
@@ -51,12 +51,15 @@ exponent = 1.0
 schedule = warmup_cosine_decay_schedule(init_value, peak_value, warmup_steps, decay_steps, end_value, exponent)
 
 # Generate steps and corresponding values
-steps = np.arange(0, decay_steps + 1)
+steps = np.arange(0, 10000)
 values = [schedule(step) for step in steps]
 
 # Plot the schedule
 plt.figure(figsize=(10, 6))
 plt.plot(steps, values, label="Learning Rate Schedule")
+plt.xscale("linear")
+plt.yscale("log")
+# plt.yscale("linear")
 plt.xlabel("Steps")
 plt.ylabel("Learning Rate")
 plt.title("Warmup Cosine Decay Learning Rate Schedule")

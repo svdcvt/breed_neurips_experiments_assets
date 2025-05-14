@@ -42,8 +42,8 @@ class CommonInitMixIn:
         # Reading the config file
         study_options = config_dict["study_options"]
         scenario_config = study_options["scenario_config"]
-        print(study_options)
-        print(scenario_config)
+        # print(study_options)
+        # print(scenario_config)
         l_bounds, u_bounds = study_options["l_bounds"], study_options["u_bounds"]
         for i in range(len(l_bounds)):
             if isinstance(l_bounds[i], str):
@@ -61,7 +61,8 @@ class CommonInitMixIn:
             )
             # num_training_steps = expected_batches_min * 2 # TODO this is very approximate!
             # TODO FIXME (i dont know how...)
-            num_training_steps = 20000
+            num_training_steps_total = study_options["parameter_sweep_size"] * 2.5  # approximate for current exps!!!! TODO
+            num_training_steps = int(num_training_steps_total * 2)
 
             scheduler_name = optim_config[1]
             if scheduler_name == "warmup_cosine":
@@ -70,9 +71,10 @@ class CommonInitMixIn:
 
                 scheduler_warmup = float(optim_config[4])
                 if scheduler_warmup <= 1.0:
-                    scheduler_warmup = int(scheduler_warmup * expected_batches_min)
+                    scheduler_warmup = int(scheduler_warmup * num_training_steps_total)
                 else:
                     scheduler_warmup = int(scheduler_warmup)
+
                 if scheduler_warmup >= num_training_steps:
                     scheduler_warmup = num_training_steps - 1
                 if scheduler_warmup <= 0:
@@ -109,7 +111,7 @@ class CommonInitMixIn:
             ic_type=scenario_config["ic_config"].split(";")[0],
             use_classic=is_valid
         )
-        print(self.breed_params)
+        # print(self.breed_params)
         self.set_parameter_sampler(
             sampler_t=self.sampler_t,
             ic_config=scenario_config["ic_config"],

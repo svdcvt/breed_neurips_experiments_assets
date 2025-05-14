@@ -35,6 +35,14 @@ if ! [[ "$number" =~ ^[0-9]+$ ]]; then
 	exit 1
 fi
 
+minutes=$3
+if [ -z "$minutes" ]; then
+	minutes=70
+elif ! [[ "$minutes" =~ ^[0-9]+$ ]]; then
+	echo "The provided minutes is not valid. Please provide a positive integer."
+	exit 1
+fi
+
 # Get the absolute path of the given folder
 abs_path=$(realpath "$given_folder")
 
@@ -68,7 +76,7 @@ done
 # Get the number of config files
 num_config_files=${#config_files[@]}
 # Calculate the total time needed to run all config files
-total_time=$((num_config_files * 90 / number))
+total_time=$((num_config_files * minutes / number))
 # Convert total time to hours and minutes
 total_time_hours=$((total_time / 60))
 total_time_minutes=$((total_time % 60))

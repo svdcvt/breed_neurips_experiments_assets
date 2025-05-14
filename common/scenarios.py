@@ -32,7 +32,7 @@ class MelissaSpecificScenario:
         else:
             self.stepper = self.scenario.get_ref_stepper()
 
-        print(self.stepper)
+        # print(self.stepper)
 
         self.network_config = network_config
         self.num_spatial_dims = self.scenario.num_spatial_dims

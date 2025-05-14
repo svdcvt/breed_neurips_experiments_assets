@@ -13,6 +13,7 @@ import utility as utl
 import pandas as pd
 import argparse
 
+GENERAL_SEED = 1234
 
 def create_from(
     scenario_config,
@@ -25,6 +26,7 @@ def create_from(
     dl_kwargs=dict(),
     melissa_kwargs=dict(),
     active_sampling_kwargs=dict(),
+    seed=GENERAL_SEED
 ):
     scenario = ScenarioConfig(**scenario_config, **scenario_kwargs)
     dl = DLConfig(**dl_config, **dl_kwargs)
@@ -42,6 +44,7 @@ def create_from(
         common_study_directory, # what is going to be in the config, important to have /home/,,, always??
         common_valid_directory,
         default_configs_file,
+        seed=seed
     )
     config_online, cfg_on_path = study_config.generate_online()
     if not study_config.validation_exists_flag:
@@ -108,7 +111,8 @@ if __name__ == "__main__":
         print("Running in normal mode")
 
     # if os.uname()[1] == "bigfoot":
-    COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
+    # COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
+    COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/random_seed_set/"
     COMMON_VALID_DIRECTORY = (
         "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
     )
@@ -144,10 +148,10 @@ if __name__ == "__main__":
     }
     dl_kwargs = {
         "valid_num_samples": 100,
-        "valid_batch_size": 256 * 2,
+        "valid_batch_size": 256 * 4,
         "activation": "relu",
-        "lr_peak": 1e-3,
-        "lr_interval": 2500,
+        "lr_peak": 1e-4,  # was 1e-3
+        "lr_interval": 5000,  # was 2500
         "nb_batches_update": 200,
     }
     melissa_config = {
@@ -173,7 +177,8 @@ if __name__ == "__main__":
     # different scenarios | uniform vs mixed
     # different active sampling regimes | for chosen pdes later
 
-    set_pde = pd.read_csv("./pde_set.csv")
+    # set_pde = pd.read_csv("./pde_set.csv")
+    set_pde = pd.read_csv("./pde_set_few.csv")
 
     for row in set_pde.iterrows():
         row = row[1]
@@ -187,54 +192,61 @@ if __name__ == "__main__":
         scenario_kwargs["ic_max_one"] = row["ic_max_one"]
         dl_config["temporal_horizon"] = row["temporal_horizon"]
         if row["temporal_horizon"] == 200:
-            melissa_config["timeout_minutes"] = 80
+            melissa_config["timeout_minutes"] = 120
+            melissa_config["total_nb_simulations_training"] = 4000
+            melissa_config["buffer_num_sim"] = 100  # pct even less 0.025
         else:
-            melissa_config["timeout_minutes"] = 60
+            # melissa_config["timeout_minutes"] = 60
+            melissa_config["timeout_minutes"] = 30
 
-        for regime in ["uniform", "mixed", "precise", "broad", "no_resampling"]:
-            active_sampling_kwargs["regime"] = regime
-            (
-                config_offline,
-                cfg_off_path,
-                config_online,
-                cfg_on_path,
-                main_dir,
-            ) = create_from(
-                scenario_config,
-                dl_config,
-                melissa_config,
-                args.default_configs_file,
-                COMMON_STUDY_DIRECTORY, # what is going to be in the config, important to have /home/... even if running from dahu
-                COMMON_VALID_DIRECTORY,
-                scenario_kwargs,
-                dl_kwargs,
-                melissa_kwargs,
-                active_sampling_kwargs,
-            )
-            if "dahu" in os.uname()[1]:
-                save_configs(
+        # for regime in ["uniform", "mixed", "precise", "broad", "no_resampling", "soft"]:
+        for regime in ["broad", "no_resampling"]:
+            for seed in [777, 2025, 424242, 1111, 0]:
+                active_sampling_kwargs["regime"] = regime
+                (
                     config_offline,
+                    cfg_off_path,
                     config_online,
-                    cfg_off_path,
-                    cfg_on_path,
-                    main_dir.replace("/home/", "/home-bigfoot/"),
-                    test=is_test,
-                )
-                save_configs(
-                    config_offline,
-                    None,
-                    cfg_off_path,
-                    None,
-                    "/home/dymchens-ext/apebench_test/experiments/set/",
-                    test=is_test,
-                )
-            else:
-                print("be sure you created offline configs on DAHU and going to run them on DAHU cluster!!!")    
-                save_configs(
-                    config_offline,
-                    config_online,
-                    cfg_off_path,
                     cfg_on_path,
                     main_dir,
-                    test=is_test,
+                ) = create_from(
+                    scenario_config,
+                    dl_config,
+                    melissa_config,
+                    args.default_configs_file,
+                    COMMON_STUDY_DIRECTORY,  # what is going to be in the config, important to have /home/... even if running from dahu
+                    COMMON_VALID_DIRECTORY,
+                    scenario_kwargs,
+                    dl_kwargs,
+                    melissa_kwargs,
+                    active_sampling_kwargs,
+                    # seed=GENERAL_SEED
+                    seed=seed
                 )
+                if "dahu" in os.uname()[1]:
+                    save_configs(
+                        config_offline,
+                        config_online,
+                        cfg_off_path,
+                        cfg_on_path,
+                        main_dir.replace("/home/", "/home-bigfoot/"),
+                        test=is_test,
+                    )
+                    save_configs(
+                        config_offline,
+                        None,
+                        cfg_off_path,
+                        None,
+                        "/home/dymchens-ext/apebench_test/experiments/set/",
+                        test=is_test,
+                    )
+                else:
+                    print("be sure you created offline configs on DAHU and going to run them on DAHU cluster!!!")    
+                    save_configs(
+                        config_offline,
+                        config_online,
+                        cfg_off_path,
+                        cfg_on_path,
+                        main_dir,
+                        test=is_test,
+                    )

@@ -188,20 +188,29 @@ class DLConfig:
         # arch
         self.shorthand = f"{self.network_config.replace(';','_')}"
         # optimization
+        numsteps_hc = 10000 if self.valid_nb_time_steps < 150 else 20000
+        if isinstance(lr_interval, float):
+            lr_pct = lr_interval
+            lr_interval = int(lr_interval * (numsteps_hc // 2))
+        else:
+            lr_interval = int(lr_interval)
+            lr_pct = round(lr_interval / (numsteps_hc // 2), 2)
         if lr_start == lr_peak:
-            if lr_interval > 0.9:
+            if lr_pct > 0.9:
                 self.shorthand += f"__constlr{lr_start:.0e}"
             else:
                 self.shorthand += f"__cosinelr{lr_start:.0e}"
         elif lr_start < lr_peak:
             self.shorthand += (
-                f"__warmupcosine{lr_start:.1e}{lr_peak:.1e}{int(lr_interval)*100:.0d}"
+                f"__warmupcosine{lr_start:.1e}_{lr_peak:.1e}_{lr_interval:d}"
             )
         else:
-            self.shorthand += f"__decaylr{lr_start:.0e}"
-        self.shorthand += f"_B{self.batch_size}"
+            self.shorthand += f"__decaylr{lr_start:.0e}_{lr_peak:.1e}_{lr_interval:d}"
+        self.shorthand += f"__B{self.batch_size}"
         # how far NN sees into the future
         self.shorthand += f"__T{round(self.vision * 100)}p"
+
+        self.shorthand = self.shorthand.replace("-0", "-").replace(".0", "")
 
         # example:
         # UNet_6_5_relu__warmupcosine1e-03_1e-02_99_B16__T50p
@@ -488,6 +497,15 @@ class ActiveSamplingConfig:
                 (melissa.per_server_watermark // dl.nb_time_steps) * 2
             )
             resample_each_nn_updates = buffer_samples * 3
+        elif regime == "soft":
+            sigma = 0.1
+            start = 0.75
+            end = 0.5
+            breakpoint_ = 5
+            sliding_window_size = buffer_samples * 3
+            fitness_min_nb_time_steps = round(0.5 * dl.nb_time_steps)
+            min_nb_finished_simulations = round(0.9 * buffer_samples)
+            resample_each_nn_updates = buffer_samples * 1
         elif regime == "uniform":
             # same as mixed but r-value = 0
             sigma = 0.1
@@ -561,13 +579,14 @@ class StudyConfig:
         common_study_directory: str,
         common_valid_directory: str,
         default_configs_file="jz_slurm_default_configs.json",
+        seed: int = GENERAL_SEED,
     ):
         self.scenario = scenario
         self.dl = dl
 
         self.melissa = melissa
         self.active_sampling = active_sampling
-        self.seed = GENERAL_SEED
+        self.seed = seed
 
         with open(default_configs_file, "r") as f:
             self.default_configs = json.load(f)
@@ -601,7 +620,7 @@ class StudyConfig:
                 self.melissa.shorthand,
                 self.dl.shorthand,
                 self.active_sampling.shorthand,
-            ]
+            ] + ([] if seed == GENERAL_SEED else [f"seed{seed}"])
         )
         subdir = "/".join(
             [
@@ -609,7 +628,7 @@ class StudyConfig:
                 self.melissa.shorthand,
                 self.dl.shorthand,
                 self.active_sampling.shorthand,
-            ]
+            ] + ([] if seed == GENERAL_SEED else [f"seed{seed}"])
         )
 
         study_directory = os.path.join(common_study_directory, subdir)
@@ -639,11 +658,11 @@ class StudyConfig:
                     "nb_parameters": self.scenario.num_waves * 2,
                     "l_bounds": self.scenario.l_bounds,
                     "u_bounds": self.scenario.u_bounds,
-                    "seed": self.seed * 100 + 42,
+                    "seed": GENERAL_SEED * 100 + 42,
                 },
                 "launcher_config": {
                     # "job_limit": self.melissa.nb_clients + 1,
-                    "http_port": int(f"88{np.random.randint(0, 10)}8"),
+                    "http_port": np.random.randint(8000, 9000),
                 },
             },
         )
@@ -690,7 +709,7 @@ class StudyConfig:
                 "launcher_config": {
                     "job_limit": self.melissa.nb_clients + 2,
                     "timer_delay": self.melissa.timer_delay,
-                    "http_port": int(f"888{np.random.randint(0, 10)}"),
+                    "http_port": np.random.randint(8000, 9000),
                 },
             },
         )

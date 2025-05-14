@@ -20,8 +20,11 @@ benchmark/*.zip
 melissa-202*
 **/debug/**
 **.png
+**.pdf
 **.csv
 !scripts/utils/pde_set.csv
 **OAR**
 experiments/set/*
+experiments/random*
 experiments/across_pdes/diff_mode/ks_cons/unet_*
+common/plot_scripts_all
