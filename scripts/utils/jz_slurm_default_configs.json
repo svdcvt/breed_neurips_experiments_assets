@@ -18,28 +18,24 @@
         "valid_num_samples": 100
     },
     "launcher_config": {
-        "scheduler": "slurm-semiglobal",
+        "scheduler": "slurm-global",
         "scheduler_arg_server": [
-            "--qos=qos_gpu-dev",
-            "--account=igf@v100",
-            "--nodes=1",
-            "--ntasks=2",
-            "--gres=gpu:1",
-            "--cpus-per-task=5",
-            "--threads-per-core=1",
-            "--hint=nomultithread"
+            "--het-group=1"
         ],
         "scheduler_server_command_options": [
+            "--mpi=pmix_v3",
             "singularity",
             "exec",
+            "--env",
+            "APEBENCH_ROOT=\"/lustre/fswork/projects/rech/igf/uyl42ho/apebench/test\"",
             "--nv",
             "$SINGULARITY_ALLOWED_DIR/melissa-active-sampling-with-apebench-cuda.sif"
         ],
         "scheduler_arg_client": [
-            "--account=igf@cpu",
+            "--het-group=0",
             "--nodes=1",
             "--ntasks=1",
-            "--time=00:10:00",
+            "--time=00:01:00",
             "--exclusive"
         ],
         "server_timeout": 900,
@@ -56,7 +52,6 @@
     },
     "server_config": {
         "preprocessing_commands": [
-            "module load singularity",
             "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.8"
         ]
     },

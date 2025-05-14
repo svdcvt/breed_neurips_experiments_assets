@@ -110,23 +110,25 @@ if __name__ == "__main__":
     else:
         print("Running in normal mode")
 
-    # if os.uname()[1] == "bigfoot":
-    # COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
-    COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/random_seed_set/"
-    COMMON_VALID_DIRECTORY = (
-        "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
-    )
-    # elif "dahu" in os.uname()[1]:
-    #     COMMON_STUDY_DIRECTORY = (
-    #         "/home-bigfoot/dymchens-ext/apebench_test/experiments/set/"
-    #     )
-    #     COMMON_VALID_DIRECTORY = (
-    #         "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
-    #     )
-    # else:
-    #     # raise ValueError("Unknown machine")
-    #     COMMON_STUDY_DIRECTORY = "temp_study_dir"
-    #     COMMON_VALID_DIRECTORY = "temp_valid_dir"
+    if os.uname()[1] == "bigfoot":
+        COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
+        COMMON_VALID_DIRECTORY = (
+            "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
+        )
+    elif "dahu" in os.uname()[1]:
+        COMMON_STUDY_DIRECTORY = (
+            "/home/dymchens-ext/apebench_test/experiments/set/"
+        )
+        COMMON_VALID_DIRECTORY = (
+            "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
+        )
+    elif "leonardo" in os.uname()[1]:
+        COMMON_STUDY_DIRECTORY = (
+            "/leonardo_work/EUHPC_D23_125/abhishek/apebench_test/experiments/set/"
+        )
+        COMMON_VALID_DIRECTORY = (
+            "/leonardo_work/EUHPC_D23_125/datasets/apebench_val/"
+        )
 
     scenario_config = {"base_scale": 5, "num_waves": 3}
     scenario_kwargs = {

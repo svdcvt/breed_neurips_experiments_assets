@@ -21,7 +21,7 @@ fi
 # Get the absolute path of the given folder
 abs_path=$(realpath "$given_folder")
 
-script_name="${abs_path}/jz_set.sh"
+script_name="${abs_path}/leo_set.sh"
 # Check if the script already exists
 if [ -f "$script_name" ]; then
 	echo "The script $script_name already exists. Please remove it or choose a different name."
@@ -50,32 +50,28 @@ first_echo="
 #SBATCH --job-name=apebench-test
 #SBATCH --output=std/%j.out
 #SBATCH --error=std/%j.err
+#SBATCH --time=${total_time}:00:00
 
-#SBATCH --time=$total_time:00:00
-#SBATCH --account=igf@cpu
-#SBATCH --qos=qos_cpu-dev
-#SBATCH --exclusive
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=20
+#SBATCH --ntasks-per-node=16
 #SBATCH --cpus-per-task=2
 #SBATCH --hint=nomultithread
+#SBATCH --account=EUHPC_D23_125
+#SBATCH --partition=boost_usr_prod 
 
-#SBATCH hetjob
-#SBATCH --qos=qos_gpu-dev
-#SBATCH --account=igf@v100
+#SBATCH hetjob           
 #SBATCH --nodes=1
 #SBATCH --ntasks=2
-#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=5
-#SBATCH --threads-per-core=1
+#SBATCH --gres=gpu:1
 #SBATCH --hint=nomultithread
+#SBATCH --account=EUHPC_D23_125
+#SBATCH --partition=boost_usr_prod 
+#SBATCH --qos=boost_qos_dbg   
 
+source $WORK/load_apebench_env.sh
 
-module load singularity
-
-set -x
-singularity_container=\"\$SINGULARITY_ALLOWED_DIR/melissa-active-sampling-with-apebench-cuda.sif\"
-export SINGULARITY_BIND=\"/usr,/lib64,/etc,/var/run/munge,/lustre/fswork/projects/rech/igf/uyl42ho\"
+export APEBENCH_ROOT=\"$WORK/abhishek/apebench_test\"
 
 "
 
@@ -86,7 +82,7 @@ for config_file in "${config_files[@]}"; do
 	config_path=$(realpath "$config_file")
 	config_file_name=$(basename "$config_file")
 	echo "Processing config file: $config_file_name"
-	echo "srun singularity exec --env APEBENCH_ROOT=\"/lustre/fswork/projects/rech/igf/uyl42ho/apebench/test\" \${singularity_container} melissa-launcher --config_name $config_path" >> "$script_name"
+	echo "exec melissa-launcher --config_name $config_path" >> "$script_name"
 done
 
 # Make the script executable
