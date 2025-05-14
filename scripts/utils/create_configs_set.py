@@ -110,21 +110,24 @@ if __name__ == "__main__":
     else:
         print("Running in normal mode")
 
+    # subdir="set"
+    subdir = "random_seed_set"
+
     if os.uname()[1] == "bigfoot":
-        COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/set/"
+        COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/{}/".format(subdir)
         COMMON_VALID_DIRECTORY = (
             "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
         )
     elif "dahu" in os.uname()[1]:
         COMMON_STUDY_DIRECTORY = (
-            "/home/dymchens-ext/apebench_test/experiments/set/"
+            "/home/dymchens-ext/apebench_test/experiments/{}/".format(subdir)
         )
         COMMON_VALID_DIRECTORY = (
             "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
         )
     elif "leonardo" in os.uname()[1]:
         COMMON_STUDY_DIRECTORY = (
-            "/leonardo_work/EUHPC_D23_125/abhishek/apebench_test/experiments/set/"
+            "/leonardo_work/EUHPC_D23_125/abhishek/apebench_test/experiments/{}/".format(subdir)
         )
         COMMON_VALID_DIRECTORY = (
             "/leonardo_work/EUHPC_D23_125/datasets/apebench_val/"
@@ -239,7 +242,7 @@ if __name__ == "__main__":
                         None,
                         cfg_off_path,
                         None,
-                        "/home/dymchens-ext/apebench_test/experiments/set/",
+                        "/home/dymchens-ext/apebench_test/experiments/{}/".format(subdir),
                         test=is_test,
                     )
                 else:

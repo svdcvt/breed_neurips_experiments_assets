@@ -82,3 +82,12 @@ if [ -z "$flag_delete" ]; then
     echo "The script $script_name has been created and is executable."
 fi
 #UNet_6_5_relu__decaylr1e-3_1e-4_5000__B256__T75p
+
+# example of running the script:
+# ./scripts/sets/meta_make_job_set.sh /path/to/folder/of/folders/ "filter_string"
+# example filter matching x OR y
+# ./scripts/sets/meta_make_job_set.sh /path/to/folder/of/folders/ "x|y"
+# example filter matching x AND y
+# ./scripts/sets/meta_make_job_set.sh /path/to/folder/of/folders/ "x.*y"
+
+
