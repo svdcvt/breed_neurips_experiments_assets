@@ -205,7 +205,8 @@ if __name__ == "__main__":
             melissa_config["timeout_minutes"] = 30
 
         # for regime in ["uniform", "mixed", "precise", "broad", "no_resampling", "soft"]:
-        for regime in ["broad", "no_resampling"]:
+        # for regime in ["broad", "no_resampling"]:
+        for regime in ["mixed", "uniform"]:
             for seed in [777, 2025, 424242, 1111, 0]:
                 active_sampling_kwargs["regime"] = regime
                 (
