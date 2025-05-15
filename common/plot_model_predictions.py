@@ -23,7 +23,6 @@ import matplotlib.colors as mpc
 import pandas as pd
 import seaborn as sns
 import glob
-from apebench_server import APEBenchServerValidation
 
 import rapidjson
 CONFIG_PARSE_MODE = rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
@@ -67,7 +66,8 @@ if __name__ == "__main__":
     if not (args.rollout_plot or args.ecdf_plot or args.scatter_plot or args.predictions_plot or args.predictions_error_plot):
         print("No plots selected. Exiting.")
         sys.exit(1)
-
+    
+    # if args.study_paths is not None:
     args.study_paths = [os.path.abspath(path) for path in args.study_paths]
     args.study_paths = [path for path in args.study_paths if os.path.isdir(path)]
     study_names = [os.path.split(path)[1] for path in args.study_paths]
@@ -83,7 +83,7 @@ if __name__ == "__main__":
         print(f"Processing study: {study_path}")
         config_path = glob.glob(os.path.join(study_path, "config*.json"))[0]
         if os.path.exists(config_path):
-            print(f"Loading config from {config_path}")
+            # print(f"Loading config from {config_path}")
             with open(config_path, 'r') as f:
                 config = rapidjson.load(f, parse_mode=CONFIG_PARSE_MODE)
                 configs.append(config)
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     if os.path.exists(valid_ids_path):
         validation_ids_df = pd.read_csv(valid_ids_path, index_col=0, header=0)
         validation_ids_df = validation_ids_df.loc[study_common_pde]
-        print(validation_ids_df)
+        # print(validation_ids_df)
         valid_ids_to_predict = validation_ids_df.iloc[:NUM].values.astype(int).flatten()
         valid_diffs = validation_ids_df.iloc[NUM:].values.astype(float).flatten()
 
@@ -159,6 +159,17 @@ if __name__ == "__main__":
         else:
             print("Study names in the dataframe match the provided study paths.")
         print("Validation results already exist. Loading from files.")
+        if "ecdf_loss.pdf" in os.listdir(args.output_dir) and args.ecdf_plot:
+            print("ECDF plot already exists. Skipping.")
+
+        if "scatter_loss.pdf" in os.listdir(args.output_dir) and args.scatter_plot:
+            print("Scatter plot already exists. Skipping.")
+        if "rollout_loss_boxplot.pdf" in os.listdir(args.output_dir) and args.rollout_plot:
+            print("Rollout loss boxplot already exists. Skipping.")
+        if "predictions.pdf" in os.listdir(args.output_dir) and args.predictions_plot:
+            print("Predictions plot already exists. Skipping.")
+            exit(0)
+            
         all_loss_per_sample = np.load(os.path.join(args.output_dir, "loss_per_sample.npy"))
         all_rollout_losses = np.load(os.path.join(args.output_dir, "rollout_losses.npy"))
         all_predictions = np.load(os.path.join(args.output_dir, "predictions.npy"))
@@ -168,6 +179,9 @@ if __name__ == "__main__":
             sys.exit(1)
         validation_input_params = np.load(os.path.join(config["dl_config"]["validation_directory"], "input_parameters.npy"))
     else:
+        print("Validation results do not exist.")
+        exit(0)
+        from apebench_server import APEBenchServerValidation
         dataframe = pd.DataFrame(columns=["study", "model_index", "avg_val_loss", "rollout_loss"] + stats_names)
         all_loss_per_sample = []
         all_rollout_losses = []
