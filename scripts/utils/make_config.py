@@ -337,6 +337,7 @@ class MelissaConfig:
                 f"\nMemory available for validation set is {utl.bto(memory_bytes_study * 0.2):.1f}Gb."
                 f"\nFor {dl.valid_num_samples} samples, the size is {utl.bto(size_sample_val * dl.valid_num_samples):.1f}Gb."
             )
+            size_val_set_during_training = size_sample_val * dl.valid_num_samples
 
         # check buffer size and memory
         max_memory_buffer = 0.8 * (memory_bytes_study - size_val_set_during_training)
@@ -387,6 +388,7 @@ class MelissaConfig:
 
         self.zmq_hwm = round(zmq_pct * self.buffer_size)
         self.buffer_size -= self.zmq_hwm
+        self.valid_num_samples = dl.valid_num_samples
 
         self.timeout_minutes = timeout_minutes
         self.nb_clients = nb_clients
@@ -701,6 +703,7 @@ class StudyConfig:
                     "valid_rollout": self.dl.valid_rollout,
                     "valid_batch_size": self.dl.valid_batch_size,
                     "valid_nb_time_steps": self.dl.valid_nb_time_steps,
+                    "valid_num_samples": self.melissa.valid_num_samples,
                     "nb_batches_update": self.dl.nb_batches_update,
                     "batch_size": self.dl.batch_size,
                     "per_server_watermark": self.melissa.per_server_watermark,

@@ -108,7 +108,7 @@ if __name__ == "__main__":
         print("Running in normal mode")
 
     # subdir="set"
-    subdir = "random_seed_set"
+    subdir = "BIG"
 
     if os.uname()[1] == "bigfoot":
         COMMON_STUDY_DIRECTORY = "/home/dymchens-ext/apebench_test/experiments/{}/".format(subdir)
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         "temporal_horizon": 100, # number of time steps in validation trajectory
     }
     dl_kwargs = { 
-        "valid_num_samples": 100, # can be higher if validation is in parallel, can be lower if it takes too long
+        "valid_num_samples": 5, # can be higher if validation is in parallel, can be lower if it takes too long
         "valid_batch_size": 32 * 10, # factor depends on gpu usage
         "activation": "relu",
         "lr_peak": 5e-4, # peak learning rate (can be lowe r than start)
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     melissa_config = {
         "total_nb_simulations_training": -1, 
         # total nb simulations for training, if -1 calculated based on buffer size and pct
-        "total_nb_simulations_validation": -1,
+        "total_nb_simulations_validation": 100,
         # if -1 calculated based on memory given
         "watermark_num_sim": 10, # watermark size in nb trajectories
         "buffer_num_sim": -1, # number of simulations in buffer, if -1 calculated based on memory
@@ -173,8 +173,8 @@ if __name__ == "__main__":
         "timer_delay": 2,
     }
     melissa_kwargs = {
-        "memory_buffer_bytes_study": 50 * 1024 * 1024,  # Memory for buffer in bytes
-        "memory_validation_bytes_file": 50 * 1024 * 1024 * 1024,  # Memory in bytes for the validation file
+        "memory_bytes_study": 40 * 1024 * 1024 * 1024,  # Memory for buffer in bytes
+        "memory_validation_bytes_file": 40 * 1024 * 1024 * 1024,  # Memory in bytes for the validation file
     }
     active_sampling_kwargs = {
         "regime": "uniform"
@@ -190,6 +190,7 @@ if __name__ == "__main__":
             cfg_on_path,
             main_dir,
         ) = create_from(
+
             scenario_config,
             dl_config,
             melissa_config,
