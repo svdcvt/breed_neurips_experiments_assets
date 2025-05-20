@@ -24,7 +24,7 @@ melissa-202*
 **.csv
 **OAR**
 common/plot_scripts_all
-validation_results*
+validation_results/validation_results*/*
 
 !scripts/utils/pde_set.csv
 !scripts/utils/pde_set_few.csv
