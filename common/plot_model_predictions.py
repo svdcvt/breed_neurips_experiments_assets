@@ -1,24 +1,8 @@
-# i have path to full validation
-# i have path to models for different studies
-# i want
-# 1.1) plot of validation quality (nRMSE, valid rollout full) for one study and its different models
-# 1.2) plot of prediction for few samples for one study and its different models
-# 2.1) plot of validation quality (nRMSE, valid rollout full) for all studies and its best models
-# 2.2) plot of prediction for few samples for all studies and its best models
-
-# choose 3 validation samples based on diff_std
-
-# arguments to pass
-# 1. path to validation data
-# 2. path(s) to study(ies) -> if list is given, then plot for all studies' best model; if one is given, then plot for that study several models
-
 import os
 import sys
 import argparse
-import json
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import matplotlib.colors as mpc
 import pandas as pd
 import seaborn as sns
@@ -28,18 +12,9 @@ import rapidjson
 CONFIG_PARSE_MODE = rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
 
 
-# valid_ids_to_predict = [317, 1026, 689, 800, 927]
-# valid_diffs = [0.003, 0.019, 0.022, 0.025, 0.036]
-# valid_ids_to_predict = [317, 954, 167, 330, 1243, 81, 239, 884, 512, 125, 1022, 927]
-# valid_diffs = [0.004, 0.010, 0.024, 0.027, 0.029, 0.030, 0.032, 0.033, 0.035, 0.038, 0.045, 0.051]
-# valid_ids_to_predict = [317, 439, 311, 154, 738, 1138, 87, 488, 595, 345, 1022, 927]
-# valid_diffs = [0.003, 0.007, 0.017, 0.019, 0.020, 0.022, 0.023, 0.024, 0.025, 0.027, 0.033, 0.036]
-# valid_ids_to_predict = [317, 954, 1025, 1, 459, 274, 551, 77, 1022, 927]
-# valid_diffs = [0.004, 0.010, 0.025, 0.028, 0.030, 0.032, 0.034, 0.037, 0.045, 0.051]
 NUM = 5
 DEPTH_PDE_FOLDER = 6
-#  /home-bigfoot/dymchens-ext/apebench_test/experiments/set/diff_kdv__2w_x04_harder_1d_x5/100BUF_10WM__2TD_8CL/UNet_6_5_relu__constlr1e-03_B256__T75p/mixed_0
-valid_ids_path = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/validation_ids.csv"
+valid_ids_path = "$DATASET_ROOT/validation_ids.csv"
 MODEL_ID_FOR_PREDICTION = 4000
 
 if __name__ == "__main__":
@@ -98,6 +73,10 @@ if __name__ == "__main__":
         # print(validation_ids_df)
         valid_ids_to_predict = validation_ids_df.iloc[:NUM].values.astype(int).flatten()
         valid_diffs = validation_ids_df.iloc[NUM:].values.astype(float).flatten()
+    else:
+        if args.plot_predictions or args.predictions_error_plot:
+            print(f"Validation ids file not found in {valid_ids_path}. Exiting. Run `find_validation_ids.py` to generate it.")
+            sys.exit(1)
 
     if len(configs) > 1:
         # we take model_best from each directory, so APEBenchServerValidation().load_model_from_checkpoint(-1) from each
@@ -125,9 +104,9 @@ if __name__ == "__main__":
 
     if args.output_dir is None:
         if args.model_id is not None:
-            args.output_dir = f"../validation_results/{study_common_pde}/{args.model_id}/"
+            args.output_dir = f"$REPO_ROOT/validation_results/{study_common_pde}/{args.model_id}/"
         else:
-            args.output_dir = f"../validation_results/{study_common_pde}/best/"
+            args.output_dir = f"$REPO_ROOT/validation_results/{study_common_pde}/best/"
     else:
         if study_common_pde not in args.output_dir:
             args.output_dir = os.path.join(args.output_dir, study_common_pde)
@@ -179,9 +158,8 @@ if __name__ == "__main__":
             sys.exit(1)
         validation_input_params = np.load(os.path.join(config["dl_config"]["validation_directory"], "input_parameters.npy"))
     else:
-        print("Validation results do not exist.")
-        exit(0)
         from apebench_server import APEBenchServerValidation
+
         dataframe = pd.DataFrame(columns=["study", "model_index", "avg_val_loss", "rollout_loss"] + stats_names)
         all_loss_per_sample = []
         all_rollout_losses = []
@@ -193,24 +171,6 @@ if __name__ == "__main__":
             all_loss_per_sample.append([])
             all_rollout_losses.append([])
             all_predictions.append([])
-
-            # we should read json config*.json and pass to the APEBenchServerValidation
-            # server = APEBenchServerValidation(config_dict)
-            # at that moment server has loaded validation path as in the config, network architecture, and other parameters
-            # for the first iteration we load validation through server object, but further we wil reuse these as to not reload them again
-            # server.load_validation_data()
-            # previous_validation_data = server.valid_dataset, server.valid_parameters, server.valid_dataloader, server.valid_dataloader_rollout
-            # or
-            # server.load_validation_data(*previous_validation_data)
-            # then either we iterate over the models [0,1,...,len(server.models_paths)-1] or we take the best model [-1]
-            # if None we do for i in range(server.num_models - 1)
-            # if -1 we use best only
-            # server.load_model_from_checkpoint(-1)
-            # at that moment server.model is the model we want to use
-            # avg_val_loss, loss_per_sample, stats, rollout_loss, rollout_losses = server.run_validation()
-            # this can take very long but tqdm helps to monitor that
-            # to do prediction, we have validation sample index i, then
-            # sample, prediction = server.rollout_sample(i)
 
             server = APEBenchServerValidation(config, study_path)
             if i == 0:
@@ -306,9 +266,7 @@ if __name__ == "__main__":
         np.save(os.path.join(args.output_dir, "val_samples_to_predict.npy"), all_val_samples_to_predict)
         print("Validation results saved to files.")
         validation_input_params = validation_data[1]
-    
 
-    
     all_names_unsorted = dataframe.apply(lambda x: f"{x['study']}_{x['model_index']}", axis=1).values
     algo_names = ["soft", "broad", "precise", "mixed", "uniform", "no_resampling"]
     colors = ["#a92be2", "#004080", "#008000", "#15b2a8", "#FA0053", "#FF512E"]
@@ -317,11 +275,7 @@ if __name__ == "__main__":
 
     model_state_id = [x[0][2].split("_")[0] for x in properties_i_n_c_m]
 
-    # colors = ["mediumblue", "green", "lightseagreen", "orangered", "sandybrown"
-
-    # print(properties_i_n_c_m)
-
-    plt.style.use("./science.mplstyle")
+    plt.style.use("$REPO_ROOT/common/science.mplstyle")
     fig_width = 3.5
     fig_height = 2.5
 
@@ -380,41 +334,6 @@ if __name__ == "__main__":
         plt.savefig(os.path.join(args.output_dir, "rollout_loss_boxplot.pdf"))
         plt.close(fig)
 
-
-
-        # for (ii, alg, name), color, marker in properties_i_n_c_m:
-        #     rollout_loss = all_rollout_losses[ii]
-        #     mean_rollout_loss = rollout_loss.mean(0)
-        #     std_rollout_loss = rollout_loss.std(0)
-        #     pl = ax.plot(mean_rollout_loss, label=name, color=color, marker=marker)
-
-        #     ax.plot(
-        #         mean_rollout_loss + std_rollout_loss,
-        #         linestyle="--",
-        #         color=color
-        #     )
-        #     ax.plot(
-        #         mean_rollout_loss - std_rollout_loss,
-        #         linestyle="--",
-        #         color=color
-        #     )
-        
-        # ax.vlines(
-        #     75 if len(rollout_ids) < 10 else 150,
-        #     ymin=0,
-        #     ymax=ax.get_ylim()[1],
-        #     color="red",
-        #     linestyle="dotted",
-        #     label="Known horizon"
-        # )
-        # fig.legend(loc="upper left")#, fontsize=16)
-        # ax.grid(which="both")
-        # ax.set_xlabel("Rollout step")
-        # ax.set_ylabel("nRMSE")
-        # ax.set_title("Validation rollout loss (non-cumulative)")
-        # ax.set_xlim(-1, mean_rollout_loss.shape[0] + 1)
-        # plt.savefig(os.path.join(args.output_dir, "rollout_loss.pdf"))#, dpi=300)
-        # plt.close(fig)
 
     #### ECDF OF VALIDATION LOSS
     if args.ecdf_plot:
@@ -539,7 +458,6 @@ if __name__ == "__main__":
                 for j in range(len(valid_ids_to_predict))
             ]
 
-        
         ncols = len(valid_ids_to_predict)
         nrows = len(all_predictions) + 1
         width = fig_width * (ncols / nrows) * 3
@@ -588,7 +506,7 @@ if __name__ == "__main__":
                 if i == nrows - 1:
                     ax[i][j].set_xlabel("Time")
         if args.predictions_plot:
-            plt.savefig(os.path.join(args.output_dir, "predictions.pdf"))#, dpi=300)
+            plt.savefig(os.path.join(args.output_dir, "predictions.pdf"))
         else:
             plt.savefig(os.path.join(args.output_dir, "predictions_error.pdf"))
         plt.close(fig)
