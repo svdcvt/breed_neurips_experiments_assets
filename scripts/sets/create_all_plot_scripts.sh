@@ -1,6 +1,6 @@
 #!/bin/bash
 
-common_path="experiments/set/"
+common_path="$REPO_ROOT/experiments/set/"
 common_subpath="100BUF_10WM__2TD_8CL/UNet_6_5_relu__decaylr1e-3_1e-4_5000__B256__T75p/"
 common_outdir="$REPO_ROOT/validation_results/validation_results_decay/"
 
@@ -26,16 +26,13 @@ command_prepend="singularity exec  --env REPO_ROOT=\"$REPO_ROOT\" \${singularity
 # "python3 plot_model_predictions.py --study-paths $paths --model-id $model_id --all-plots"
 
 # iterate over all the directories in the common_path (one depth level only)
-subdirs=$(find ../$common_path -mindepth 1 -maxdepth 1 -type d)
+subdirs=$(find $common_path -mindepth 1 -maxdepth 1 -type d)
 subdirs=$(echo "$subdirs" | grep "diff_")
 
 # create all scripts
 for dir in $subdirs; do
     dir_basename=$(basename $dir)
     pathhs="${dir}/${common_subpath}*"
-    # remove ../ from the path
-    pathhs=${pathhs:3}
-    pathhs="$REPO_ROOT/$pathhs"
     for model_id in "${model_ids[@]}"; do
         script_name="${script_prefix}_${model_id}_${dir_basename}.sh"
         script_path="${script_dir}${script_name}"
@@ -55,4 +52,4 @@ done
 
 chmod +x $job_script
 echo "All scripts created in $script_dir"
-echo "All oarsub scripts created in $job_script"
+echo "All job scripts added in $job_script"
