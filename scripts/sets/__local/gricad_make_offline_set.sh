@@ -78,9 +78,12 @@ echo "Total time needed to run all config files: $total_time"
 
 # TODO:ANONYMYSE
 first_echo="
-YOUR_CLUSTER_SCHEDULER_SETTINGS (20 CPU cores, 0 GPU, total_time hours)
+#OAR -n melissa-study-validation-$number
+#OAR -l /nodes=1/core=20,walltime=$total_time:00
+#OAR --project pr-melissa
 
-singularity_container=\"PATH/TO/melissa-active-sampling-with-apebench-cuda.sif\"
+source /applis/environments/singularity_env.sh
+singularity_container=\"/bettik/PROJECTS/pr-melissa/COMMON/containers/April23/melissa-active-sampling-with-apebench-cuda.sif\"
 
 "
 for i in $(seq 1 $number); do
@@ -98,8 +101,7 @@ for i in $(seq 1 $num_config_files); do
 	config_path=$(realpath "$config_file")
 	config_file_name=$(basename "$config_file")
 	echo "Processing config file: $config_file_name"
-	# TODO:ANONYMISE
-	echo "singularity exec --env REPO_ROOT=\$REPO_ROOT \${singularity_container} melissa-launcher --config_name $config_path" >> "$script_name_"
+	echo "singularity exec  --bind /bettik:/bettik --env APEBENCH_ROOT="$HOME/apebench_test" \${singularity_container} melissa-launcher --config_name $config_path" >> "$script_name_"
 	echo "sleep 10" >> "$script_name_"
 done
 

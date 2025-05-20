@@ -9,7 +9,7 @@ def get_metaids(length, num):
     meta_ids = [meta_ids[0], meta_ids[0] + 10, *meta_ids[1:-1], meta_ids[-1] - 10, meta_ids[-1]]
     return meta_ids
 
-main_directory = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/"
+main_directory = "$DATASET_ROOT"
 add_file_path = "diff_*/trajectories/all_trajectories.npy"
 NUM = 5
 validation_file_path = os.path.join(main_directory, add_file_path)

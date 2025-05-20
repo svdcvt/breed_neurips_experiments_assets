@@ -1,10 +1,18 @@
 #!/bin/bash
 
-#first to make sure we need to see if we are on bigfoot frontend
-if [ "$(hostname)" != "bigfoot" ]; then
-	echo "This script should be run on the bigfoot frontend."
-	exit 1
-fi
+# # This script is used to create a set of job scripts for a given folder containing config files.
+# # It will find all the directories that match a given filter and create a job script for each of them.
+# # It will also create a meta job script that will run all the job scripts in parallel.
+# # The script will delete the job scripts if the third argument is set to "delete".
+
+# # example of running the script:
+# # .meta_make_job_set.sh /path/to/folder/of/folders/ "filter_string"
+# # example of deleteing the job scripts:
+# # .meta_make_job_set.sh /path/to/folder/of/folders/ "filter_string" delete
+# # example filter matching x OR y
+# # .meta_make_job_set.sh /path/to/folder/of/folders/ "x|y"
+# # example filter matching x AND y
+# # .meta_make_job_set.sh /path/to/folder/of/folders/ "x.*y"
 
 
 given_folder="$1"
@@ -38,8 +46,7 @@ if [ -z "$flag_delete" ]; then
     for folder in "${filtered_directories[@]}"; do
         echo "Running make_job_set for $folder"
         # make_job_set.sh <directory> <number> <minutes>
-        # minutes=70
-        minutes=35
+        minutes=70
         substringnot70="diff_ks__[23]w_default"
         # check if this string in the name and if yes then minutes is 130
         if echo "$folder" | grep -q "$substringnot70"; then
@@ -51,9 +58,9 @@ if [ -z "$flag_delete" ]; then
     done
 fi
 # than gather all the scripts names in a file that will do oarsub -S script_name
-# scripts made by make_job_set.sh are named bigf_set_0.sh inside the folder
-# and the script that will do oarsub -S is named bigf_set_meta_{filter}.sh
-    script_name="${abs_path}/bigf_set_meta_${filter}.sh"
+# scripts made by make_job_set.sh are named job_set_0.sh inside the folder
+# and the script that will do oarsub -S is named job_set_meta_{filter}.sh
+    script_name="${abs_path}/job_set_meta_${filter}.sh"
 if [ -z "$flag_delete" ]; then
     echo "#!/bin/bash" > "$script_name"
 else
@@ -63,7 +70,7 @@ fi
 
 for folder in "${filtered_directories[@]}"; do
     # get the script name
-    script_name_="${folder}/bigf_set_0.sh"
+    script_name_="${folder}/job_set_0.sh"
     # check if the script exists
     if [ -f "$script_name_" ]; then
         if [ -z "$flag_delete" ]; then
@@ -81,13 +88,3 @@ if [ -z "$flag_delete" ]; then
     chmod +x "$script_name"
     echo "The script $script_name has been created and is executable."
 fi
-#UNet_6_5_relu__decaylr1e-3_1e-4_5000__B256__T75p
-
-# example of running the script:
-# ./scripts/sets/meta_make_job_set.sh /path/to/folder/of/folders/ "filter_string"
-# example filter matching x OR y
-# ./scripts/sets/meta_make_job_set.sh /path/to/folder/of/folders/ "x|y"
-# example filter matching x AND y
-# ./scripts/sets/meta_make_job_set.sh /path/to/folder/of/folders/ "x.*y"
-
-

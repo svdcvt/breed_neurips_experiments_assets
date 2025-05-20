@@ -192,14 +192,6 @@ class APEBenchServer(CommonInitMixIn,
         self.one_small_batch = self.dl_config.get("valid_rollout_fast", False)
         self.best_val_loss = np.inf
 
-        # Setting plotting config
-        self.plotting_config = self.monitoring_config.get("plotting_config", None)
-        # if self.plotting_config is not None:
-        #     self.plot_dim = self.scenario.num_spatial_dims
-        #     nrows = self.plotting_config.get("plot_rows", 5)
-        #     self.plot_row_ids = np.linspace(0, self.valid_batch_size, num=nrows, dtype=int)
-        #     self.plot_tids = np.linspace(0, self.valid_nb_time_steps, num=nrows, dtype=int)
-
     def get_learning_rate(self):
         _, scheduler = self.scenario.get_optimizer(with_lr_scheduler=True)
         count = self.opt_state[0].count  # get current step
@@ -304,9 +296,6 @@ class APEBenchServer(CommonInitMixIn,
         self.tb_logger.log_scalar("Learning_rate", self.get_learning_rate(), batch_idx)
         self.tb_logger.log_scalar("Breed_ratio/batch", self.get_breed_ratio(sim_ids_list), batch_idx)
         
-        # TODO these should be logged always, not when log_extra==True :(
-        # self.tb_logger.log_scalar("Breed_ratio/R", self._parameter_sampler.R, batch_idx)
-        # self.tb_logger.log_scalar("Breed_iter", self._parameter_sampler.R_i, batch_idx)
 
         if batch_idx % 50 == 0:
             logger.info(f"TRAINING:{batch_idx:05d}: Batch loss: {batch_loss.item():.2e}")
@@ -332,16 +321,7 @@ class APEBenchServer(CommonInitMixIn,
         if self.monitoring_config.get("checkpoint_model_last", False):
             logger.info("Saving last model.")
             self.checkpoint_model(suffix="last")
-        # fig = putils.plot_seen_count_histogram(list(self.buffer.seen_ctr.elements()))
-        # if fig is not None:
-        #     self.tb_logger.log_figure(
-        #         "SeenCountsHistogram",
-        #         fig
-        #     )
-        # TODO create plot of predictions?
-        # TODO create plot of final parameters trained on
-        # TODO create loss plots for paper?
-        # TODO timing ?
+
 
     @override
     def on_validation_start(self, batch_idx):
@@ -447,11 +427,8 @@ class APEBenchServer(CommonInitMixIn,
                 batch_idx, memory_efficient=True,
                 plot_rollout_loss=True, plot_prediction=True, one_small_batch=self.one_small_batch)
             logger.info(f"TRAINING:{batch_idx:05d}: Validation rollout function took {time.time() - start_val:.2f} seconds.")
-            # self.validation_mesh_plot(batch_idx, valid_batch_idx, sim_ids_list, u_prev, u_next, u_next_hat)
             self.memory_monitor.log_stats("After validation rollout", iteration=batch_idx)
-            # when we want to add plots
-            # predictions, rollout_loss = self.run_validation_rollout(batch_idx, memory_efficient=False)
-            # plot predictions, plot rollout_loss
+
 
     def run_validation_rollout(
             self, batch_idx, memory_efficient=True,

@@ -1,6 +1,6 @@
 {
 "online" : {
-    "server_filename": "$REPO_ROOT/common/apebench_server.py",
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchServer",
     "output_dir": "",
     "ignore_client_death": true,
@@ -29,7 +29,7 @@
         "std_output": true
     },
     "client_config": {
-        "executable_command": "$REPO_ROOT/common/solver.py",
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
         "command_default_args": [],
         "preprocessing_commands": [
             "export JAX_PLATFORMS=cpu"
@@ -49,7 +49,7 @@
 },
 
 "offline": {
-    "server_filename": "$REPO_ROOT/common/apebench_server.py",
+    "server_filename": "$APEBENCH_ROOT/common/apebench_server.py",
     "server_class": "APEBenchOfflineServer",
     "output_dir": "",
     "study_options": {
@@ -70,7 +70,7 @@
         "job_limit": 20
     },
     "client_config": {
-        "executable_command": "$REPO_ROOT/common/solver.py",
+        "executable_command": "$APEBENCH_ROOT/common/solver.py",
         "command_default_args": ["--offline"],
         "preprocessing_commands": [
             "export JAX_PLATFORMS=cpu"

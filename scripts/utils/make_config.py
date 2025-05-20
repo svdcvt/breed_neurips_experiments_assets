@@ -1,11 +1,11 @@
 import json
 import numpy as np
-from dataclasses import dataclass, asdict
-from typing import List, Any, Dict, Optional, Union
+from dataclasses import dataclass
+from typing import Union
 import os
 import math
-from pprint import pprint
 import utility as utl
+import pprint
 
 
 DIM = 1
@@ -825,6 +825,82 @@ def test_config_generation():
     except Exception as e:
         print(f"Failed to create config: {str(e)}")
         raise
+
+
+def create_from(
+    scenario_config,
+    dl_config,
+    melissa_config,
+    default_configs_file,
+    common_study_directory,
+    common_valid_directory,
+    scenario_kwargs=dict(),
+    dl_kwargs=dict(),
+    melissa_kwargs=dict(),
+    active_sampling_kwargs=dict(),
+    seed=GENERAL_SEED
+):
+    scenario = ScenarioConfig(**scenario_config, **scenario_kwargs)
+    dl = DLConfig(**dl_config, **dl_kwargs)
+    melissac = MelissaConfig(scenario, dl, **melissa_config, **melissa_kwargs)
+    if len(active_sampling_kwargs) == 0:
+        active_sampling_kwargs["regime"] = "uniform"
+    active_sampling = ActiveSamplingConfig(
+        scenario, dl, melissac, **active_sampling_kwargs
+    )
+    study_config = StudyConfig(
+        scenario,
+        dl,
+        melissac,
+        active_sampling,
+        common_study_directory, # what is going to be in the config, important to have /home/,,, always??
+        common_valid_directory,
+        default_configs_file,
+        seed=seed
+    )
+    config_online, cfg_on_path = study_config.generate_online()
+    if not study_config.validation_exists_flag:
+        config_offline, cfg_off_path = study_config.generate_offline()
+        return (
+            config_offline,
+            cfg_off_path,
+            config_online,
+            cfg_on_path,
+            os.path.dirname(study_config.study_directory),
+        )
+    return (
+        None,
+        None,
+        config_online,
+        cfg_on_path,
+        os.path.dirname(study_config.study_directory),
+    )
+
+
+def save_configs(
+    config_offline, config_online, cfg_off_path, cfg_on_path, main_dir, test=False
+):
+    """
+    Save the generated configurations to the specified directory.
+    """
+    if not test:
+        os.makedirs(main_dir, exist_ok=True)
+        if config_offline is not None:
+            print(os.path.join(main_dir, cfg_off_path))
+            with open(os.path.join(main_dir, cfg_off_path), "w") as f:
+                json.dump(config_offline, f, indent=4)
+        if config_online is not None:
+            print(os.path.join(main_dir, cfg_on_path))
+            with open(os.path.join(main_dir, cfg_on_path), "w") as f:
+                json.dump(config_online, f, indent=4)
+    else:
+        print("=" * 120)
+        print("Offline config path:", cfg_off_path)
+        pprint.pp(config_offline, width=120)
+        print("=" * 120)
+        print("Online config path:", cfg_on_path)
+        pprint.pp(config_online, width=120)
+        print("=" * 120)
 
 
 if __name__ == "__main__":

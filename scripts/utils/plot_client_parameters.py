@@ -297,7 +297,6 @@ def main():
 
     print(f"Found {len(parameters)} client scripts with parameters.")
     print(f"Each client has {parameters.shape[1]} parameters.")
-    # path = "/bettik/PROJECTS/pr-melissa/COMMON/datasets/apebench_val/burgers_1d/high_res_faster_default_5waves/trajectories/input_parameters.npy"
     if not os.path.exists(args.validation_path) and args.validation_path != '':
         print(f"Validation parameters file not found at {args.validation_path}.")
         return

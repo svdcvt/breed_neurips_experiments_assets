@@ -7,12 +7,8 @@
 # and calculate total time needed to run all the config files, which will be  N * 60 minutes
 # then we loop over the config files
 # and run the melissa-launcher command for each config file
-
-#first to make sure we need to see if we are on bigfoot frontend
-if [ "$(hostname)" != "bigfoot" ]; then
-	echo "This script should be run on the bigfoot frontend."
-	exit 1
-fi
+# example of running the script > separate script in 5 scripts, each config is 30 minutes run
+# ./make_job_set.sh path/to/folder/ 5 30
 
 
 given_folder="$1"
@@ -46,7 +42,7 @@ fi
 # Get the absolute path of the given folder
 abs_path=$(realpath "$given_folder")
 
-script_name="${abs_path}/bigf_set"
+script_name="${abs_path}/job_set"
 for i in $(seq 1 $number); do
 	ii=$((i - 1))
 	script_name_="${script_name}_${ii}.sh"
@@ -91,16 +87,14 @@ total_time="$total_time_hours:$total_time_minutes"
 # Print the total time needed
 echo "Total time needed to run all config files: $total_time hours"
 
+# first part of the cluster job submission script
 first_echo="
-#OAR -n melissa-study-bench
-#OAR -l /nodes=1/core=10/gpu=1,walltime=$total_time:00
-#OAR -p gpumodel='V100'
-#OAR --project pr-melissa
+YOUR_CLUSTER_SCHEDULER_SETTINGS (10 CPU cores, 1 GPU, total_time hours)
 
-source /applis/environments/singularity_env.sh
-singularity_container=\"/bettik/PROJECTS/pr-melissa/COMMON/containers/April23/melissa-active-sampling-with-apebench-cuda.sif\"
+singularity_container=\"\$REPO_ROOT/melissa-active-sampling-with-apebench-cuda.sif\"
 
 "
+
 for i in $(seq 1 $number); do
 	ii=$((i - 1))
 	script_name_="${script_name}_${ii}.sh"
@@ -116,7 +110,8 @@ for i in $(seq 1 $num_config_files); do
 	config_path=$(realpath "$config_file")
 	config_file_name=$(basename "$config_file")
 	echo "Processing config file: $config_file_name"
-	echo "singularity exec --nv --bind /bettik:/bettik --env APEBENCH_ROOT="$HOME/apebench_test" \${singularity_container} melissa-launcher --config_name $config_path" >> "$script_name_"
+	# TODO:ANONYMISE
+	echo "singularity exec --nv --env REPO_ROOT=\$REPO_ROOT \${singularity_container} melissa-launcher --config_name $config_path" >> "$script_name_"
 	echo "sleep 10" >> "$script_name_"
 done
 

@@ -24,7 +24,7 @@
 |$\beta_1$|6.25e-3| |
 
 
-## Difficulty modee
+## Difficulty mode
 
 
 |Path|Level|Num waves|$\gamma_2$|$\gamma_4$|$\delta_1$|

@@ -1,3 +1,5 @@
+experiments/*
+# for this version
 std
 build
 MELISSA
@@ -13,18 +15,16 @@ client_scripts/
 checkpoints/
 __pycache__
 validation/**
-benchmark/**/*.json
-!benchmark/default_*.json
-benchmark/*.zip
 .vscode/settings.json
+.vscode*
 melissa-202*
 **/debug/**
 **.png
 **.pdf
 **.csv
-!scripts/utils/pde_set.csv
 **OAR**
-experiments/set/*
-experiments/random*
-experiments/across_pdes/diff_mode/ks_cons/unet_*
 common/plot_scripts_all
+validation_results*
+
+!scripts/utils/pde_set.csv
+!scripts/utils/pde_set_few.csv

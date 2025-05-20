@@ -1,16 +1,5 @@
-import psutil
 import argparse
-
-def calculate_data_size(space_points, time_points, num_samples, precision=32):
-    """Calculate size in bytes for given parameters"""
-    bytes_per_number = 4 if precision == 32 else 8
-    # Size for one sample (space points * time points * bytes per number)
-    sample_size = space_points * time_points * bytes_per_number
-    return sample_size * num_samples
-
-def get_available_memory():
-    """Get available system memory in bytes"""
-    return psutil.virtual_memory().available
+from utility import get_available_memory, calculate_data_size
 
 def main():
     parser = argparse.ArgumentParser(description='Calculate data size and maximum training samples')
