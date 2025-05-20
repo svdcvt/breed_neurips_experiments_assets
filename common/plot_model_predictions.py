@@ -12,12 +12,15 @@ import rapidjson
 CONFIG_PARSE_MODE = rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
 
 
-NUM = 5
-DEPTH_PDE_FOLDER = 6
-valid_ids_path = "$DATASET_ROOT/validation_ids.csv"
-MODEL_ID_FOR_PREDICTION = 4000
-
 if __name__ == "__main__":
+    REPO_ROOT = os.environ.get("REPO_ROOT")
+    if REPO_ROOT is None:
+        print("Error: REPO_ROOT environment variable is not set. Exiting.")
+        sys.exit(1)
+    DATASET_ROOT = os.environ.get("DATASET_ROOT")
+    if DATASET_ROOT is None:
+        print("Error: DATASET_ROOT environment variable is not set. Exiting.")
+        sys.exit(1)
 
     parser = argparse.ArgumentParser(description="Plot model predictions and validation quality.")
     parser.add_argument("--study-paths", type=str, nargs='+', default=".", help="Path(s) to study(ies) with model(s).")
@@ -46,7 +49,7 @@ if __name__ == "__main__":
     args.study_paths = [os.path.abspath(path) for path in args.study_paths]
     args.study_paths = [path for path in args.study_paths if os.path.isdir(path)]
     study_names = [os.path.split(path)[1] for path in args.study_paths]
-    study_common_pde = set([path.split('/')[DEPTH_PDE_FOLDER] for path in args.study_paths])
+    study_common_pde = set([p for p in path.split('/') if "diff" in p][0] for path in args.study_paths])
     if len(study_common_pde) > 1:
         print("Error: study paths do not share the same common PDE folder. Exiting.")
         sys.exit(1)
@@ -67,10 +70,11 @@ if __name__ == "__main__":
             continue
 
     # read validation_ids.csv
+    valid_ids_path = f"{DATASET_ROOT}/validation_ids.csv"
     if os.path.exists(valid_ids_path):
         validation_ids_df = pd.read_csv(valid_ids_path, index_col=0, header=0)
         validation_ids_df = validation_ids_df.loc[study_common_pde]
-        # print(validation_ids_df)
+        NUM = validation_ids_df.shape[0] // 2
         valid_ids_to_predict = validation_ids_df.iloc[:NUM].values.astype(int).flatten()
         valid_diffs = validation_ids_df.iloc[NUM:].values.astype(float).flatten()
     else:
@@ -104,9 +108,9 @@ if __name__ == "__main__":
 
     if args.output_dir is None:
         if args.model_id is not None:
-            args.output_dir = f"$REPO_ROOT/validation_results/{study_common_pde}/{args.model_id}/"
+            args.output_dir = f"{REPO_ROOT}/validation_results/{study_common_pde}/{args.model_id}/"
         else:
-            args.output_dir = f"$REPO_ROOT/validation_results/{study_common_pde}/best/"
+            args.output_dir = f"{REPO_ROOT}/validation_results/{study_common_pde}/best/"
     else:
         if study_common_pde not in args.output_dir:
             args.output_dir = os.path.join(args.output_dir, study_common_pde)
@@ -275,7 +279,7 @@ if __name__ == "__main__":
 
     model_state_id = [x[0][2].split("_")[0] for x in properties_i_n_c_m]
 
-    plt.style.use("$REPO_ROOT/common/science.mplstyle")
+    plt.style.use("{REPO_ROOT}/common/science.mplstyle")
     fig_width = 3.5
     fig_height = 2.5
 

@@ -24,7 +24,7 @@ if __name__ == "__main__":
     )
     args = parse.parse_args()
 
-    main_directory = "$DATASET_ROOT"
+    main_directory = os.environ.get("DATASET_ROOT")
     add_file_path = "trajectories/all_trajectories.npy"
     NUM = args.num
     validation_file_path = os.path.join(main_directory, args.subdir_match, add_file_path)

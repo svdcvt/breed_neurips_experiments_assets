@@ -17,14 +17,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--study-directory",
         type=str,
-        default="./experiments/",
-        help="Path to the common studies directory",
-    )
-    parser.add_argument(
-        "--valid-directory",
-        type=str,
-        default="./datasets/",
-        help="Path to the common validation datasets directory",
+        default="experiments",
+        help="Path to the common studies directory in the repo_root",
     )
     parser.add_argument(
         "--subdir",
@@ -41,8 +35,12 @@ if __name__ == "__main__":
     else:
         print("Running in normal mode")
 
-    COMMON_STUDY_DIRECTORY = os.path.join(args.study_directory, args.subdir)
-    COMMON_VALID_DIRECTORY = args.study_directory
+    COMMON_STUDY_DIRECTORY = os.path.join(os.environ.get("REPO_ROOT"), args.study_directory, args.subdir)
+    COMMON_VALID_DIRECTORY = os.environ.get("DATASET_ROOT")
+    if COMMON_VALID_DIRECTORY is None:
+        raise ValueError(
+            "Please set the DATASET_ROOT environment variable to the path of the validation data."
+        )
     GENERAL_SEED = 1234
     
     ##### first we define default common parameters

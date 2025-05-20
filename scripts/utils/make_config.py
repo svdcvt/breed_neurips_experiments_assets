@@ -580,7 +580,7 @@ class StudyConfig:
         active_sampling: ActiveSamplingConfig,
         common_study_directory: str,
         common_valid_directory: str,
-        default_configs_file="jz_slurm_default_configs.json",
+        default_configs_file="default_configs.json",
         seed: int = GENERAL_SEED,
     ):
         self.scenario = scenario
