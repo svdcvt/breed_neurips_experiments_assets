@@ -32,3 +32,4 @@ validation_results/validation_results_*/*
 !validation_results/validation_results_decay/combined_validation_results.csv
 !validation_results/pde_stats.csv
 !validation_results/random_seed_tensorboard_results.csv
+!experiment_workflow.png
