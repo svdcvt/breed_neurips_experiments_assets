@@ -28,7 +28,20 @@ To find a good middle-ground solution, we come up with the following system. It 
 |**Semi**  |  Level "Code" + anonymised configs (view only)|    | See here:  |
 
 
-[^1]: The right way to unzip the archive to preserve directories structure: `unzip TODO`
+1*: The right way to unzip the archive to preserve directories structure: `unzip TODO`
+
+![image](./experiment_workflow.png)
+
+METRICs (calculated over the full validation dataset):
+- full rollout nRMSE average,
+- one-to-one MSE mean, max, std, median.
+
+METHODs: broad, precise, mixed, soft, uniform, static
+
+PDEs: see [table](scripts/utils/pde_set.csv)
+
+CHKPTs: model weights checkpoints available, usually 1k-2k-3k--4k
+
 
 ## Container Usage Instructions
 
