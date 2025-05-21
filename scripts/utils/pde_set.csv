@@ -2,7 +2,6 @@ pde,diffusion_gamma,hyp_diffusion_gamma,convection_delta,dispersion_gamma,convec
 ks_cons,-3.0,-50.0,-1.0,,,true,2,100
 ks_cons,-3.0,-50.0,-1.0,,,false,2,100
 ks_cons,-2.0,-18.0,-1.0,,,true,3,100
-ks_cons,-2.0,-18.0,-1.0,,,false,3,100
 ks_cons,-2.5,-20.0,-1.0,,,true,3,100
 ks,-3.3,-30.0,-6.0,,,false,3,100
 ks,-3.3,-30.0,-6.0,,,true,3,100

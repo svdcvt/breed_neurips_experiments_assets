@@ -38,7 +38,7 @@ METRICs (calculated over the full validation dataset):
 
 METHODs: broad, precise, mixed, soft, uniform, static
 
-PDEs: see [table](scripts/utils/pde_set.csv)
+PDEs: see [table](scripts/utils/pde_set_names.csv)
 
 CHKPTs: model weights checkpoints available, usually 1k-2k-3k--4k
 
