@@ -28,6 +28,7 @@ validation_results/validation_results_*/*
 **.zip
 
 !scripts/utils/pde_set.csv
+!scripts/utils/pde_set_names.csv
 !scripts/utils/pde_set_few.csv
 !validation_results/validation_results_decay/combined_validation_results.csv
 !validation_results/pde_stats.csv

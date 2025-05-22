@@ -1,0 +1,15 @@
+pde,diffusion_gamma,hyp_diffusion_gamma,convection_delta,dispersion_gamma,convection_sc_delta,ic_max_one,num_waves,temporal_horizon,name
+ks_cons,-3.0,-50.0,-1.0,,,true,2,100,diff_ks_cons__2w_x19_easier_max1_1d_x5
+ks_cons,-3.0,-50.0,-1.0,,,false,2,100,diff_ks_cons__2w_x19_easier_1d_x5
+ks_cons,-2.0,-18.0,-1.0,,,true,3,100,diff_ks_cons__3w_default_max1_1d_x5
+ks_cons,-2.5,-20.0,-1.0,,,true,3,100,diff_ks_cons__3w_x09_harder_max1_1d_x5
+ks,-3.3,-30.0,-6.0,,,false,3,100,diff_ks__3w_x07_harder_1d_x5
+ks,-3.3,-30.0,-6.0,,,true,3,100,diff_ks__3w_x07_harder_max1_1d_x5
+ks,-3.3,-30.0,-6.0,,,false,2,100,diff_ks__2w_x07_harder_1d_x5
+ks,-3.3,-30.0,-6.0,,,true,2,100,diff_ks__2w_x07_harder_max1_1d_x5
+ks,-1.2,-15.0,-6.0,,,false,3,200,diff_ks__3w_default_1d_x5
+ks,-1.2,-15.0,-6.0,,,true,3,200,diff_ks__3w_default_max1_1d_x5
+ks,-1.2,-15.0,-6.0,,,false,2,200,diff_ks__2w_default_1d_x5
+ks,-1.2,-15.0,-6.0,,,true,2,200,diff_ks__2w_default_max1_1d_x5
+kdv,,-5.0,,-20.0,-2.0,true,2,100,diff_kdv__2w_x04_harder_max1_1d_x5
+kdv,,-9.0,,-14.0,-2.0,true,2,100,diff_kdv__2w_x10_easier_max1_1d_x5
