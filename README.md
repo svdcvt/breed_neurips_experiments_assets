@@ -85,40 +85,32 @@ Set `XLA_FLAGS` for CUDA library search path to find `nvvm/libdevices.so`,
 export XLA_FLAGS="--xla_gpu_cuda_data_dir=$CONDA_PREFIX"
 ```
 
-<!-- Finally, try a toy training with apebench,
+Test a toy training using APEBench,
 ```bash
 python3 sample/hello.py
-``` -->
-
-_Note: Melissa installation within the local conda environment has been complicated. Only testing apebench x melissa on jean-zay at the moment._
-
-### Melissa and JAX/APEBench with `module` for GPU
-
-#### JAX/APEBench
-
-```bash
-module load python/3.10.4 cudnn/9.2.0.82-cuda
-python3 -m pip install --user --no-cache-dir "jax[cuda12_local]"
-python3 -m pip install --user --no-cache-dir apebench
-```
-_When running_
-```bash
-module load python/3.10.4 cudnn/9.2.0.82-cuda
-python3 sample/hello.py
-```
-TODO: i deleted sample/hello.py should return it back lol
-
-#### Melissa
-```bash
-module load cmake zeromq openmpi/4.1.5 python/3.10.4 cudnn/9.2.0.82-cuda
-git clone https://gitlab.inria.fr/melissa/melissa.git MELISSA
-cd MELISSA
-python3 -m pip install --target=install --no-deps --no-cache-dir -e .[dl]
-cmake -DCMAKE_INSTALL_PREFIX=install -DINSTALL_ZMQ=OFF -S . -B build
-make -C build
-make -C build install
 ```
 
-_Note: Install unfound packages with `python3 -m pip install --user --no-cache-dir ...` in `~/.local`_
+Melissa's installation should be done outside the conda environment. Therefore, execute,
 
+```bash
+python3 -m pip install -r melissa_requirements.txt
+curl -L -o /tmp/melissa.zip <url-for-melissa.zip> && unzip /tmp/melissa.zip -d $HOME/melissa
+cd $HOME/melissa
+./build_and_install.sh
+```
+
+These commands will install Melissa module inside `$HOME/melisssa/install`. Users are free to change the location for unzipping.
+
+**NOTE:** It is important to initialize Melissa by executing `source $HOME/melissa/melissa_set_env.sh`
+before making a run. The script is responsible for setting environment variables exposing melissa binaries, libraries, etc.
+
+#### Test Melissa
+```bash
+source $HOME/melissa/melissa_set_env.sh
+melissa-launcher --print-options
+```
+Run a study,
+```bash
+melissa-launcher --print-options path/to/config.json
+```
 
