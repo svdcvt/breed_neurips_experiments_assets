@@ -95,8 +95,7 @@ Melissa's installation should be done outside the conda environment. Therefore, 
 ```bash
 python3 -m pip install -r melissa_requirements.txt
 curl -L -o /tmp/melissa.zip <url-for-melissa.zip> && unzip /tmp/melissa.zip -d $HOME/melissa
-cd $HOME/melissa
-./build_and_install.sh
+./build_and_install_melissa.sh $HOME/melissa
 ```
 
 These commands will install Melissa module inside `$HOME/melisssa/install`. Users are free to change the location for unzipping.
