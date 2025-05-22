@@ -1,0 +1,28 @@
+# base server core dependencies
+typing-extensions
+pyzmq>=22.3.0
+mpi4py<4.0.0
+numpy>=1.21
+psutil>=5.4
+
+# launcher configuration validation
+jsonschema>=4.5
+
+# launcher/server configuration loading
+python-rapidjson>=1.8
+
+# experimental design dependency
+scipy>=1.10.0
+cloudpickle>=2.2.0
+iterative-stats>=0.1.0
+
+
+# tensorboard logging
+tensorboard>=2.10.0
+
+# tutorial plotting
+matplotlib
+
+# tensorboard log to dataframe conversion dependency
+tensorflow-cpu
+pandas
