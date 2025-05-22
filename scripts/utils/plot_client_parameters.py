@@ -55,7 +55,7 @@ def gather_parameters(directory):
         client_id = int(file_path.stem.split('.')[2])
         params = extract_parameters(file_path)
         if params:
-            print("From file", file_path.stem, resampling_id, is_b, client_id)
+            # print("From file", file_path.stem, resampling_id, is_b, client_id)
             r_ids.append(int(resampling_id))
             is_bs.append(is_b)
             c_ids.append(int(client_id))
@@ -137,9 +137,14 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
         max_params_all = np.array([1.0, 2 * np.pi] * n_p)
     # Get number of parameters per data point
     n_params = parameters.shape[1]
+    REPO_ROOT = os.environ.get('REPO_ROOT')
+    plt.style.use(f"{REPO_ROOT}/common/science.mplstyle")
+    fig_width = 2.5
+    fig_height = 2.5
     
     # Create a figure for the scatter plot matrix
-    fig, axes = plt.subplots(n_params, n_params, figsize=(3*n_params, 3*n_params))
+    fig, axes = plt.subplots(n_params, n_params, figsize=(fig_width * 3, fig_height * 3),)
+    fig.suptitle(f'Created parameters, {output_dir.split("/")[-2:]}', fontsize=12)
     plt.subplots_adjust(hspace=0.3, wspace=0.3)
     
     # Parameter labels
@@ -196,18 +201,18 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
                         
                         mask = (r_ids <= n_intervals) & is_bs
                         ledeux = [parameters[mask, i], parameters[~is_bs, i]]
-                        ax.hist(ledeux, bins=bins[i], histtype='bar', color=['blue', 'silver'], label=['Proposal', 'Random'], alpha=0.5)
+                        ax.hist(ledeux, bins=bins[i], histtype='bar', color=['blue', 'silver'], label=['Proposal', 'Random'], alpha=0.5, density=True)
                         # ax.hist(parameters[mask, i], bins=bins[i], alpha=0.5, color='blue', label='Proposal')
                         # ax.hist(parameters[~is_bs, i], bins=bins[i], color='silver', label='Random')
-                        ax.hist(parameters[r_ids>=n_intervals-1, i], bins=bins[i], alpha=0.7, color='yellow', label='Last 2')
+                        ax.hist(parameters[r_ids>=n_intervals-1, i], bins=bins[i], alpha=0.7, color='yellow', label='Last 2', density=True)
                         vl = ax.get_ylim()[1]
                         ax.vlines([np.mean(parameters[mask, i])], 0, vl, color='blue', linestyle='--',)
                         ax.vlines([np.mean(parameters[~is_bs, i])], 0, vl, color='black', linestyle='--')
                     else:
-                        ax.hist(parameters[~is_bs, i], bins=bins[i], color='silver', label='Random')
+                        ax.hist(parameters[~is_bs, i], bins=bins[i], color='silver', label='Random', density=True)
                         vl = ax.get_ylim()[1]
                         ax.vlines([np.mean(parameters[~is_bs, i])], 0, vl, color='black', linestyle='--')
-                    ax.hist(additional_parameters[:, i], bins=bins[i], histtype='step', alpha=1.0, color='red', label='Validation')
+                    ax.hist(additional_parameters[:, i], bins=bins[i], histtype='step', alpha=1.0, color='red', density=True, label='Validation')
                     ax.set_title(f'{param_labels[i]} Distribution')
                     if i == 0:
                         ax.legend(loc='upper right', fontsize='small')
@@ -216,12 +221,12 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
             # Off-diagonal: show scatter plot
             else:
                 # Plot additional parameters in red
-                scatter2 = ax.scatter(additional_parameters[:, j], additional_parameters[:, i], 
-                                   alpha=0.1, s=1, color='red', marker='v',label='Validation')
+                # scatter2 = ax.scatter(additional_parameters[:, j], additional_parameters[:, i], 
+                #                    alpha=0.1, s=1, color='red', marker='v',label='Validation')
                 scatter1 = ax.scatter(parameters[~is_bs, j], parameters[~is_bs, i], 
                                        c='silver',
-                                       s=10, label='Random',
-                                       alpha=0.2 if n_intervals > 1 else 0.9,
+                                       s=20, label='Random',
+                                       alpha=0.5 if n_intervals > 1 else 0.9,
                                        )
                 for rrr in range(1,n_intervals):
                     mask = r_ids == rrr
@@ -266,11 +271,20 @@ def plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, add
         cbar1.set_label('Density')
     
     # Save the figure
-    plt.savefig(os.path.join(output_dir, f'parameter_scatter_matrix_{agg}.png'), 
-                dpi=300, bbox_inches='tight')
+    if agg is None:
+        plt.savefig(output_dir.rstrip('/') + '_parameter_scatters.pdf',
+                    dpi=300, bbox_inches='tight')
+    else:
+        plt.savefig(output_dir.rstrip('/') + f'_parameter_scatter_matrix_{agg}.pdf', 
+                    dpi=300, bbox_inches='tight')
     plt.close()
-    
-    print("Scatter plot matrix saved to", os.path.join(output_dir, f'parameter_scatter_matrix_{agg}.png'))
+    if agg is None:
+        print("Scatter plot matrix saved to", output_dir.rstrip('/') + '_parameter_scatters.pdf')
+    else:
+        print("Scatter plot matrix saved to", output_dir.rstrip('/') + f'_{agg}_parameter_scatter_matrix.pdf')
+
+    print("Parameters plotted successfully.")
+
 
 def main():
     parser = argparse.ArgumentParser(description='Extract and plot parameters from client scripts.')
@@ -285,7 +299,17 @@ def main():
                         help='Path to the validation parameters file')
 
     args = parser.parse_args()
-    output_dir = os.path.dirname(args.input_dir.rstrip('/'))
+    REPO_ROOT = os.environ.get('REPO_ROOT')
+    if REPO_ROOT is None:
+        print("REPO_ROOT environment variable is not set.")
+        return
+    output_dir = f"{REPO_ROOT}/validation_results/sampled_parameters/"
+    os.makedirs(output_dir, exist_ok=True)
+    parts = os.path.abspath(args.input_dir).rstrip('/').split('/')
+    method = parts[-2]
+    pde = parts[6]
+    output_subdir = os.path.join(output_dir, pde, method)
+    os.makedirs(os.path.join(output_dir, pde), exist_ok=True)
     if args.agg == '':
         args.agg = None
 
@@ -301,7 +325,7 @@ def main():
         print(f"Validation parameters file not found at {args.validation_path}.")
         return
 
-    plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_dir, args.validation_path, args.agg, args.stack)
+    plot_parameters(r_ids, is_bs, c_ids, parameters, timestamps, output_subdir, args.validation_path, args.agg, args.stack)
 
 
 if __name__ == "__main__":

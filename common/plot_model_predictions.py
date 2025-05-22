@@ -80,7 +80,7 @@ if __name__ == "__main__":
         valid_ids_to_predict = validation_ids_df.iloc[:NUM].values.astype(int).flatten()
         valid_diffs = validation_ids_df.iloc[NUM:].values.astype(float).flatten()
     else:
-        if args.plot_predictions or args.predictions_error_plot:
+        if args.predictions_plot or args.predictions_error_plot:
             print(f"Validation ids file not found in {valid_ids_path}. Exiting. Run `find_validation_ids.py` to generate it.")
             sys.exit(1)
 

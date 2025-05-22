@@ -1,4 +1,10 @@
 PDE Type,mode,k,normalised,Regime,nRMSE,Max,Std,Mean
+KS,default,2,False,broad,2.8,2.4e-4,3.2e-5,4.9e-5
+KS,default,2,False,mixed,2.0,4.5e-4,3.0e-5,5.1e-5
+KS,default,2,False,precise,2.7,6.6e-4,6.0e-5,8.7e-5
+KS,default,2,False,soft,1.6,3.6e-4,2.1e-5,3.4e-5
+KS,default,2,False,static,2.6,4.3e-3,8.5e-5,8.1e-5
+KS,default,2,False,uniform,2.1,3.6e-3,5.7e-5,2.8e-5
 KS,default,2,True,broad,1.7,3.8e-4,1.4e-5,1.4e-5
 KS,default,2,True,mixed,2.3,6.1e-4,1.6e-5,2.2e-5
 KS,default,2,True,precise,2.2,3.3e-4,1.4e-5,1.0e-5
