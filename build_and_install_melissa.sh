@@ -11,8 +11,6 @@ set -ex
 # MELISSA_DIR: Melissa repository path
 # MELISSA_INSTALL_PREFIX: Directory where MELISSA will be installed.
 # MELISSA_BIN_DIR: Directory where MELISSA binaries will be built.
-# HPDE_EXEC_DIR: Directory containing the heat-pde example executables.
-# HPDE_EXEC_BIN_DIR: Directory where heat-pde example binaries will be built.
 
 # Steps:
 # 1. Remove old build and installation directories, and environment setup script.
@@ -21,8 +19,6 @@ set -ex
 # 4. Build the project using the generated Makefiles.
 # 5. Install the built project to the specified installation directory.
 # 6. Source the environment setup script to set necessary environment variables.
-# 7. Remove old build directory for heat-pde example.
-# 8. Configure and build the heat-pde example executables using CMake and Make.
 # =====================================================================================
 
 
