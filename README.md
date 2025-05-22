@@ -60,7 +60,10 @@ We provide the instructions to install dependencies without the container, but w
 
 Before installing, make sure `LD_LIBRARY_PATH` is not set.
 
-There is a `jax[cuda12]`, which should install its own cuda toolkit and cuDNN version from Python wheels.
+
+#### Option 1 (No CUDA present)
+There is a `jax[cuda12]`, which should install its own CUDA toolkit and cuDNN version from Python wheels.
+
 ```bash
 conda create -n apebench python=3.10
 conda activate apebench
@@ -69,7 +72,8 @@ python3 -m pip install --upgrade "jax[cuda12]"
 python3 -m pip install apebench
 ```
 
-If this does not work, add `cuda cudnn` to `conda create` and let `jax` installation use local versions, like this:
+#### Option 2 (CUDA present)
+If option 1 does not work, add `cuda cudnn` to `conda create` and let `jax` installation use local versions, like this:
 
 ```bash
 conda create -n apebench python=3.10 cuda cudnn
@@ -78,6 +82,10 @@ python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade "jax[cuda12_local]"
 python3 -m pip install apebench
 ```
+
+**NOTE:** `jax[cuda12_local]` should also work if you have CUDA packages already installed on the machine. Making external CUDA work seamlessly with the conda environment might be problematic. In that case, use `python3-venv` environment instead.
+
+---
 
 To check that GPU is available:
 ```bash
@@ -117,8 +125,8 @@ before making a run. The script is responsible for setting environment variables
 source $HOME/melissa/melissa_set_env.sh
 melissa-launcher --print-options
 ```
-Run a study,
+and run any study with the command:
 ```bash
-melissa-launcher --print-options path/to/config.json
+melissa-launcher --config <path_to_config>
 ```
 
