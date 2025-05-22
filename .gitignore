@@ -1,4 +1,4 @@
-experiments/*
+experiments__local/
 # for this version
 std
 build

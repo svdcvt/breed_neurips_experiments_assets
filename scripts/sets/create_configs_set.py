@@ -94,7 +94,7 @@ if __name__ == "__main__":
         "regime": "uniform" # one of the regimes: uniform, broad, precise, mixed, soft, no_resampling
         }
     
-    # here you can iterate over differnt changing parts
+    # here you can iterate over different changing parts
     for regime in ["broad", "mixed", "soft", "no_resampling"]:
         active_sampling_kwargs["regime"] = regime
         (

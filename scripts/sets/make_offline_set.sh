@@ -24,6 +24,15 @@ if ! [[ "$number" =~ ^[0-9]+$ ]]; then
 	exit 1
 fi
 
+
+minutes=$3
+if [ -z "$minutes" ]; then
+	minutes=30
+elif ! [[ "$minutes" =~ ^[0-9]+$ ]]; then
+	echo "The provided minutes is not valid. Please provide a positive integer."
+	exit 1
+fi
+
 script_name="offline_${name}"
 
 # we separate in "number" scripts
@@ -58,7 +67,7 @@ done
 # Get the number of config files
 num_config_files=${#config_files[@]}
 # Calculate the total time needed to run all config files in parallel number
-total_time=$((num_config_files * 30 / number))
+total_time=$((num_config_files * minutes / number))
 # Convert total time to hours and minutes
 total_time_hours=$((total_time / 60))
 total_time_minutes=$((total_time % 60))
@@ -76,7 +85,6 @@ total_time="$total_time_hours:$total_time_minutes"
 # Print the total time needed
 echo "Total time needed to run all config files: $total_time"
 
-# TODO:ANONYMYSE
 first_echo="
 YOUR_CLUSTER_SCHEDULER_SETTINGS (20 CPU cores, 0 GPU, total_time hours)
 
@@ -98,7 +106,6 @@ for i in $(seq 1 $num_config_files); do
 	config_path=$(realpath "$config_file")
 	config_file_name=$(basename "$config_file")
 	echo "Processing config file: $config_file_name"
-	# TODO:ANONYMISE
 	echo "singularity exec --env REPO_ROOT=\$REPO_ROOT \${singularity_container} melissa-launcher --config_name $config_path" >> "$script_name_"
 	echo "sleep 10" >> "$script_name_"
 done
@@ -112,4 +119,3 @@ for i in $(seq 1 $number); do
 done
 echo "Scripts $script_name created successfully."
 echo "Note: Make sure to check the scripts for any errors before running them."
-echo "You can run them with: oarsub -S ./$script_name"

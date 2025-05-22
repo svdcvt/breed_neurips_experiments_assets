@@ -47,7 +47,7 @@ done
 echo "#!/bin/bash" > $job_script
 # list all the scripts as in sorted order
 for script in $(ls -1 $script_dir | sort -V | grep $script_prefix); do
-    echo "oarsub -S ./$script" >> $job_script
+    echo "CLUSTER_SUBMIT ./$script" >> $job_script
 done
 
 chmod +x $job_script

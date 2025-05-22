@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# we create another script with OAR settings to fit the right time
+# we create another script with cluster settings to fit the right time
 # argument 1 is a folder which we need to recursively get to config files
 # we save absolute paths to the config files in a variable
 # then we get the number of the config files N, len of the array
@@ -110,7 +110,6 @@ for i in $(seq 1 $num_config_files); do
 	config_path=$(realpath "$config_file")
 	config_file_name=$(basename "$config_file")
 	echo "Processing config file: $config_file_name"
-	# TODO:ANONYMISE
 	echo "singularity exec --nv --env REPO_ROOT=\$REPO_ROOT \${singularity_container} melissa-launcher --config_name $config_path" >> "$script_name_"
 	echo "sleep 10" >> "$script_name_"
 done
@@ -123,5 +122,5 @@ for i in $(seq 1 $number); do
 	chmod +x "$script_name_"
 done
 echo "Script $script_name created successfully."
-echo "You can run it with: oarsub -S ./$script_name"
+echo "You can run it with: CLUSTER_SUB ./$script_name"
 echo "Note: Make sure to check the script for any errors before running it."

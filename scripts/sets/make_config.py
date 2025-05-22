@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Union
 import os
 import math
-import utility as utl
+from ..utils import utility as utl
 import pprint
 
 
