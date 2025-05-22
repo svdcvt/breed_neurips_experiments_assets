@@ -1,0 +1,128 @@
+{
+    "server_filename": "$REPO_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchServer",
+    "output_dir": "$REPO_ROOT/experiments/random_seed_set/diff_ks_cons__3w_default_max1_1d_x5/100BUF_10WM__2TD_8CL/UNet_6_5_relu__decaylr1e-3_1e-4_5000__B256__T75p/broad/seed1111_0",
+    "ignore_client_death": true,
+    "study_options": {
+        "field_names": [
+            "preposition",
+            "position"
+        ],
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2,
+        "scenario_config": {
+            "scenario_name": "diff_ks_cons",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;<amp3>;<phs3>;false;true",
+            "num_points": 800,
+            "diffusion_gamma": -50.0,
+            "hyp_diffusion_gamma": -11250.0,
+            "convection_delta": -5.0,
+            "network_config": "UNet;6;5;relu",
+            "optim_config": "adam;warmup_cosine;0.001;0.0001;5000"
+        },
+        "parameter_sweep_size": 2000,
+        "nb_time_steps": 75,
+        "nb_parameters": 6,
+        "l_bounds": [
+            -1.0,
+            0.0,
+            -1.0,
+            0.0,
+            -1.0,
+            0.0
+        ],
+        "u_bounds": [
+            1.0,
+            6.2832,
+            1.0,
+            6.2832,
+            1.0,
+            6.2832
+        ],
+        "seed": 1111,
+        "zmq_hwm": 75
+    },
+    "active_sampling_config": {
+        "nn_updates": 198,
+        "min_nb_finished_simulations": 20,
+        "delta_loss_min_nb_time_steps": 19,
+        "non_resampling_threshold": 1,
+        "breed_params": {
+            "non_breed_sampling_strategy": "random",
+            "sigma": [
+                0.2,
+                0.6283,
+                0.2,
+                0.6283,
+                0.2,
+                0.6283
+            ],
+            "start": 0.75,
+            "end": 0.9,
+            "breakpoint": 3,
+            "sliding_window_size": 198,
+            "use_true_mixing": true,
+            "log_extra": false
+        }
+    },
+    "dl_config": {
+        "buffer": "Reservoir",
+        "convert_log_to_df": false,
+        "valid_rollout_fast": true,
+        "valid_num_samples": 100,
+        "validation_directory": "$DATASET_ROOT/diff_ks_cons__3w_default_max1_1d_x5/trajectories",
+        "validation_file": "all_trajectories.npy",
+        "valid_rollout": 100,
+        "valid_batch_size": 1024,
+        "valid_nb_time_steps": 101,
+        "nb_batches_update": 200,
+        "batch_size": 256,
+        "per_server_watermark": 750,
+        "buffer_size": 7425
+    },
+    "launcher_config": {
+        "scheduler": "openmpi",
+        "scheduler_arg_server": [
+            "-n",
+            "2",
+            "--oversubscribe",
+            "--timeout",
+            "1800"
+        ],
+        "scheduler_arg_client": [
+            "-n",
+            "1",
+            "--oversubscribe"
+        ],
+        "server_timeout": 900,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true,
+        "job_limit": 10,
+        "timer_delay": 2,
+        "http_port": 8109
+    },
+    "client_config": {
+        "executable_command": "$REPO_ROOT/common/solver.py",
+        "command_default_args": [],
+        "preprocessing_commands": [
+            "export JAX_PLATFORMS=cpu",
+            "export CONFIG_FILE=config_diff_ks_cons__3w_default_max1_1d_x5__100BUF_10WM__2TD_8CL__UNet_6_5_relu__decaylr1e-3_1e-4_5000__B256__T75p__broad__seed1111_mpi.json"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+            "export XLA_PYTHON_CLIENT_MEM_FRACTION=0.8"
+        ]
+    },
+    "monitoring_config": {
+        "log_memory": "tb",
+        "plotting_config": {
+            "plot_rows": 5
+        },
+        "checkpoint_model_best": true,
+        "checkpoint_model_last": true,
+        "checkpoint_model_each_step": 1000
+    }
+}

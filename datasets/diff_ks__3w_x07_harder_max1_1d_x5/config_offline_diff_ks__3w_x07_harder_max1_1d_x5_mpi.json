@@ -1,0 +1,80 @@
+{
+    "server_filename": "$REPO_ROOT/common/apebench_server.py",
+    "server_class": "APEBenchOfflineServer",
+    "output_dir": "$DATASET_ROOT/diff_ks__3w_x07_harder_max1_1d_x5",
+    "study_options": {
+        "field_names": [
+            "preposition",
+            "position"
+        ],
+        "simulation_timeout": 60,
+        "crashes_before_redraw": 1,
+        "verbosity": 2,
+        "scenario_config": {
+            "scenario_name": "diff_ks",
+            "ic_config": "sine_sup;<amp1>;<phs1>;<amp2>;<phs2>;<amp3>;<phs3>;false;true",
+            "num_points": 800,
+            "diffusion_gamma": -82.5,
+            "hyp_diffusion_gamma": -18750.0,
+            "gradient_norm_delta": -150,
+            "network_config": "MLP;1;1;relu"
+        },
+        "parameter_sweep_size": 1500,
+        "nb_time_steps": 100,
+        "nb_parameters": 6,
+        "l_bounds": [
+            -1.0,
+            0.0,
+            -1.0,
+            0.0,
+            -1.0,
+            0.0
+        ],
+        "u_bounds": [
+            1.0,
+            6.2832,
+            1.0,
+            6.2832,
+            1.0,
+            6.2832
+        ],
+        "seed": 123442
+    },
+    "launcher_config": {
+        "scheduler": "openmpi",
+        "scheduler_arg_server": [
+            "-n",
+            "1",
+            "--oversubscribe",
+            "--timeout",
+            "1700"
+        ],
+        "scheduler_arg_client": [
+            "-n",
+            "1",
+            "--oversubscribe"
+        ],
+        "server_timeout": 200,
+        "timer_delay": 1,
+        "fault_tolerance": false,
+        "verbosity": 2,
+        "std_output": true,
+        "job_limit": 20,
+        "http_port": 8818
+    },
+    "client_config": {
+        "executable_command": "$REPO_ROOT/common/solver.py",
+        "command_default_args": [
+            "--offline"
+        ],
+        "preprocessing_commands": [
+            "export JAX_PLATFORMS=cpu",
+            "export CONFIG_FILE=config_offline_diff_ks__3w_x07_harder_max1_1d_x5_mpi.json"
+        ]
+    },
+    "server_config": {
+        "preprocessing_commands": [
+            "export JAX_PLATFORMS=cpu"
+        ]
+    }
+}
