@@ -33,6 +33,8 @@ if __name__ == "__main__":
     parser.add_argument("--predictions-plot", action="store_true", help="Plot predictions.")
     parser.add_argument("--predictions-error-plot", action="store_true", help="Plot prediction error.")
     parser.add_argument("--all-plots", action="store_true", help="Plot all.")
+    parser.add_argument("--rerun-val", action="store_true", help="Rerun validation and overwrite existing results.")
+    parser.add_argument("--rerun-plots", action="store_true", help="Rerun plotting.")
 
     args = parser.parse_args()
     if args.all_plots:
@@ -49,7 +51,7 @@ if __name__ == "__main__":
     args.study_paths = [os.path.abspath(path) for path in args.study_paths]
     args.study_paths = [path for path in args.study_paths if os.path.isdir(path)]
     study_names = [os.path.split(path)[1] for path in args.study_paths]
-    study_common_pde = set([p for p in path.split('/') if "diff" in p][0] for path in args.study_paths])
+    study_common_pde = set([p for path in args.study_paths for p in path.split('/') if "diff" in p])
     if len(study_common_pde) > 1:
         print("Error: study paths do not share the same common PDE folder. Exiting.")
         sys.exit(1)
@@ -120,7 +122,7 @@ if __name__ == "__main__":
                 args.output_dir = os.path.join(args.output_dir, "best")
         else:
             if args.model_id is not None:
-                if args.model_id not in args.output_dir:
+                if str(args.model_id) not in args.output_dir:
                     args.output_dir = os.path.join(args.output_dir, str(args.model_id))
             else:
                 if "best" not in args.output_dir:
@@ -135,6 +137,13 @@ if __name__ == "__main__":
             os.path.exists(os.path.join(args.output_dir, "rollout_losses.npy")) and \
             os.path.exists(os.path.join(args.output_dir, "predictions.npy")) and \
             os.path.exists(os.path.join(args.output_dir, "val_samples_to_predict.npy")):
+        # if args.rerun_val:
+        #     print("Rerun validation is set. Deleting existing results.")
+        #     os.remove(os.path.join(args.output_dir, "validation_results.csv"))
+        #     os.remove(os.path.join(args.output_dir, "loss_per_sample.npy"))
+        #     os.remove(os.path.join(args.output_dir, "rollout_losses.npy"))
+        #     os.remove(os.path.join(args.output_dir, "predictions.npy"))
+        #     os.remove(os.path.join(args.output_dir, "val_samples_to_predict.npy"))
         dataframe = pd.read_csv(os.path.join(args.output_dir, "validation_results.csv"))
         if set(dataframe["study"].values) != set(study_names):
             print("Warning: study names in the dataframe do not match the provided study paths. Exiting.")
@@ -142,16 +151,19 @@ if __name__ == "__main__":
         else:
             print("Study names in the dataframe match the provided study paths.")
         print("Validation results already exist. Loading from files.")
+        
         if "ecdf_loss.pdf" in os.listdir(args.output_dir) and args.ecdf_plot:
-            print("ECDF plot already exists. Skipping.")
-
+            if not args.rerun_plots:
+                args.ecdf_plot = False
         if "scatter_loss.pdf" in os.listdir(args.output_dir) and args.scatter_plot:
-            print("Scatter plot already exists. Skipping.")
+            if not args.rerun_plots:
+                args.scatter_plot = False
         if "rollout_loss_boxplot.pdf" in os.listdir(args.output_dir) and args.rollout_plot:
-            print("Rollout loss boxplot already exists. Skipping.")
+            if not args.rerun_plots:
+                args.rollout_plot = False
         if "predictions.pdf" in os.listdir(args.output_dir) and args.predictions_plot:
-            print("Predictions plot already exists. Skipping.")
-            exit(0)
+            if not args.rerun_plots:
+                args.predictions_plot = False
             
         all_loss_per_sample = np.load(os.path.join(args.output_dir, "loss_per_sample.npy"))
         all_rollout_losses = np.load(os.path.join(args.output_dir, "rollout_losses.npy"))
@@ -279,9 +291,32 @@ if __name__ == "__main__":
 
     model_state_id = [x[0][2].split("_")[0] for x in properties_i_n_c_m]
 
-    plt.style.use("{REPO_ROOT}/common/science.mplstyle")
+    plt.style.use(f"{REPO_ROOT}/common/science.mplstyle")
     fig_width = 3.5
     fig_height = 2.5
+
+    to_name = {
+        "kdv": "KdV",
+        "ks": "KS",
+        "cons": "KS-c"
+    }
+    def identifier_to_name(pde_identifier, string=True):
+        # diff_kdv__2w_x04_harder_max1_1d_x5
+        parts = pde_identifier.split("__")
+        # diff_kdv 2w_x04_harder_max1_1d_x5
+        pde_type = to_name[parts[0].split("_")[-1]]
+        subparts = parts[1].split("_")
+        # 2w x04 harder max1 1d x5
+        numw = subparts[0][0] # 2
+        norm = True if subparts[-3] == "max1" else False
+        mode = "default" if subparts[1] == "default" else subparts[2]
+        if string:
+            return f"{pde_type}, {mode} ({numw} waves{', normalised' if norm else ''})"
+        else:
+            return pde_type, mode, numw, norm
+    
+    pde_name = identifier_to_name(study_common_pde)
+    pde_name_components = identifier_to_name(study_common_pde, string=False)
 
     ##### ROLLOUT LOSS
     if args.rollout_plot:
@@ -310,7 +345,10 @@ if __name__ == "__main__":
         
 
         fig, ax = plt.subplots(1, 1, figsize=(width, fig_height), layout='constrained')
-        fig.suptitle("Validation rollout loss (non-cumulative)")
+        title = f"Validation rollout loss (non-cumulative), {pde_name}"
+        if args.model_id is not None:
+            title += f" (i={args.model_id})"
+        fig.suptitle(title)
         axx = sns.boxplot(df, x="rollout_step", y="nRMSE", 
                           hue="algorithm",
                           fill=False,
@@ -345,7 +383,7 @@ if __name__ == "__main__":
         all_loss_per_sample_percentile = np.percentile(all_loss_per_sample, [0, 100], axis=(1, 2)).T
 
         fig, ax1 = plt.subplots(1, 1, figsize=(fig_width * 1.25, fig_height* 1.25), layout='constrained')
-        title = f"Empirical CDF of validation 1-to-1 loss"
+        title = f"Empirical CDF of validation 1-to-1 loss, {pde_name}"
         if args.model_id is not None:
             title += f" (i={args.model_id})"
         ax1.set_title(title)
@@ -380,11 +418,14 @@ if __name__ == "__main__":
         norm = mpc.PowerNorm(gamma=0.5, vmin=min_loss_mean, vmax=max_loss_mean)
         
         ncols = len(properties_i_n_c_m)
-        width = ncols * fig_width
+        width = fig_width * (ncols / 2) * 1.5
         height = fig_width
 
         fig, ax2 = plt.subplots(1, ncols, figsize=(width, height), sharey=True, sharex=True, layout='constrained')
-        fig.suptitle("Average validation loss per trajectory")
+        title = f"Average MSE loss per validation trajectory, {pde_name}"
+        if args.model_id is not None:
+            title += f" (i={args.model_id})"
+        fig.suptitle(title)
 
         for i, ((ii, alg, name), color, marker) in enumerate(properties_i_n_c_m, start=0):
             label = alg if args.model_id is not None else f"{alg} (i={name.split('_')[-1]})"
@@ -497,13 +538,13 @@ if __name__ == "__main__":
                     if i == (len(properties_i_n_c_m) - 1):
                         cb = fig.colorbar(im, ax=ax[1:, j], fraction=0.05, pad=0.05, aspect=40, extend="both")
                         cb.ax.tick_params(labelsize=6)
-            if args.model_id is None:
+            if args.model_id is not None:
                 title = f"{alg} (i={name.split('_')[-1]})"
             else:
                 title = f"{alg}"
             ax[i][0].set_title(title, loc="left")
-        if args.predictions_error_plot:                
-            cb.set_label(label='Absolute Error', size='large')
+        # if args.predictions_error_plot:                
+        #     cb.set_label(label='Absolute Error', size='large')
         for i in range(len(ax)):
             for j in range(len(ax[i])):
                 ax[i][j].set_yticks([])
