@@ -180,11 +180,13 @@ python plot_client_parameters.py --input-dir /path/to/experiment/client_scripts 
 
 Run after experiments to visualize how parameter sampling evolved during training.
 
+A simple script: [`./utils/plot_all_client_parameters.sh`](./utils/plot_all_client_parameters.sh)
+
 
 ### [`utils/create_all_plot_scripts.sh`](./utils/create_all_plot_scripts.sh) and [`utils/plot_some.sh`](./utils/plot_some.sh)
 
 **Purpose**: Generate scripts for creating visualization plots and plotting specific experiment results. It uses [`plot_model_predictions.py`](../common/plot_model_predictions.py), which inference the model with checkpoint weights and creates plots for the predictions. These scripts are designed to be run on CPU nodes.
-Change manually lines 3-5, 11, 18, 50.
+Change manually lines 3-5, 11, 18, 50. It is as well possible to be run locally within one script, but it can take long time, as the validation set is big.
 
 
 
@@ -196,7 +198,7 @@ Change manually lines 3-5, 11, 18, 50.
    export REPO_ROOT=/path/to/this/repo
    export DATASET_ROOT=/path/to/save/validation/datasets
    ```
-   Also, make sure to install dependencies as described in []( or use the container.
+   Also, make sure to install dependencies as described in [here](../README.md#installation-instructions) or use the container (explained [here](../README.md#container-usage-instructions)).
 
 1. **Create configuration files**:
 Change the parameters in the script to your needs. Then run:
@@ -224,8 +226,7 @@ Change the parameters in the script to your needs. Then run:
 
 6. **Visualise/analyse results**:
    ```bash
-   python $REPO_ROOT/scripts/utils/plot_client_parameters.py --input-dir $REPO_ROOT/experiments/myset/diff_kdv__2w_x10_easier_max1_1d_x5/client_scripts \
-       --validation-path $DATASET_ROOT/diff_kdv__2w_x10_easier_max1_1d_x5/trajectories/all_parameters.npy
+   $REPO_ROOT/scripts/utils/plot_all_client_scripts.sh
    
    python $REPO_ROOT/scripts/utils/find_validation_ids.py --subdir-match "diff_" --num 5
    ```
